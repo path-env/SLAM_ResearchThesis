@@ -19,34 +19,38 @@ class Map():
         self.l_occ = np.log(0.65/0.35)
         self.l_free = np.log(0.35/0.65)
         self.l_unknown = 0.5
-        self.MapMode = MapMode
+        self.MapMode = 2
         self.SceneName = sceneName
         self.Grid_resol = 1 # a x a m cell
         self.Angular_resol = np.rad2deg(np.arctan( self.Grid_resol/ self.max_r))
         
-        if MapMode ==1: #Local Map
-            self.Xlim_start = np.int32(0)
-            self.Xlim_end = np.int32(2*self.max_r + 91)
-            self.Ylim_start = np.int32(0);
-            self.Ylim_end = np.int32(2*self.max_r + 91)
-            self.Lat_Width =  self.mapSize #np.int32((self.Ylim_end -  self.Ylim_start))
-            self.Long_Length =  self.mapSize #np.int32((self.Xlim_end -  self.Xlim_start))
+        if self.MapMode ==1: #Local Map
+            self.Xlim_start = 0
+            self.Xlim_end = (2*self.max_r + 91)
+            self.Ylim_start = (0);
+            self.Ylim_end = (2*self.max_r + 91)
+            self.Lat_Width =  (self.Ylim_end -  self.Ylim_start)
+            self.Long_Length =  (self.Xlim_end -  self.Xlim_start)
         else: #Global Map
             self.Grid_resol = 1
-            self.Xlim_start = np.int32(min(Poses['x']) - self.max_r - 10)
-            self.Xlim_end = np.int32(max(Poses['x']) + self.max_r + 10)
-            self.Ylim_start = np.int32(min(Poses['y']) - self.max_r - 10)
-            self.Ylim_end = np.int32(max(Poses['y']) + self.max_r + 10)    
-            self.Lat_Width = np.int32( (self.Ylim_end -  self.Ylim_start)/self.Grid_resol)
+            self.Xlim_start = (0- self.max_r - 95)
+            self.Xlim_end = (0 + self.max_r + 96)
+            self.Ylim_start = (0 - self.max_r - 95)
+            self.Ylim_end = (0 + self.max_r + 96)    
+            self.Lat_Width = np.int32((self.Ylim_end -  self.Ylim_start)/self.Grid_resol)
             self.Long_Length = np.int32((self.Xlim_end -  self.Xlim_start)/self.Grid_resol)
             
-        self.Local_Map = np.zeros((self.Long_Length,self.Lat_Width))
-        self.Grid_Pos = np.array([np.tile(np.arange(0, self.Long_Length, 1)[:,None], (1, self.Lat_Width)),np.tile(np.arange(0,self.Lat_Width, 1)[:,None].T, (self.Long_Length, 1))])
+        MGrid = np.meshgrid( np.arange(self.Ylim_start,self.Ylim_end,self.Grid_resol) ,np.arange(self.Xlim_start,self.Xlim_end,self.Grid_resol))
+        self.Grid_Pos = np.zeros((2,self.Lat_Width,self.Long_Length))
+        self.Grid_Pos[0,:,:] =  MGrid[0]
+        self.Grid_Pos[1,:,:] =  MGrid[1]
+        self.Local_Map = np.zeros((self.Lat_Width,self.Long_Length))
+        #self.Grid_Pos = np.array([np.tile(np.arange(0, self.Long_Length, 1)[:,None], (1, self.Lat_Width)),np.tile(np.arange(0,self.Lat_Width, 1)[:,None].T, (self.Long_Length, 1))])
         c = ( 0.5 * np.ones((self.Long_Length,self.Lat_Width)))
         self.LO_t = np.log(np.divide(c,np.subtract(1,c)))
         self.LO_t_i = self.LO_t   
     
-    def __Lidar_3D_Preprocessing(self,Meas_Z_t):
+    def Lidar_3D_Preprocessing(self,Meas_Z_t):
         '''
         Parameters
         ----------
@@ -86,9 +90,8 @@ class Map():
             DESCRIPTION:
             Updated GLobal Map
         '''
-        #self.Local_Map = 0*self.Local_Map
         if 'Range_XY_plane' not in Meas_Z_t.keys():
-            Meas_Z_t = self.__Lidar_3D_Preprocessing(Meas_Z_t)
+            Meas_Z_t = self.Lidar_3D_Preprocessing(Meas_Z_t)
         InvModel = self.__inverse_sensor_model2(Pose_X_t, Meas_Z_t,PltEnable)
         #self.LO_t_i = np.log(np.divide(InvModel,np.subtract(1,InvModel))) # + self.LO_t_i  - self.LO_t
         return InvModel
@@ -129,15 +132,142 @@ class Map():
         return self.Local_Map
         
     def __inverse_sensor_model2(self,Pose_X_t, Meas_Z_t,PltEnable = False):
+        self.Pose_X_t = Pose_X_t
         if self.MapMode ==1:
             (x,y,orientation) = (Pose_X_t['x'] ,Pose_X_t['y']  ,Pose_X_t['yaw'])
         else:
             (x,y,orientation) = (Pose_X_t['x'] ,Pose_X_t['y'] ,Pose_X_t['yaw'])
+        self.Map2Ray_corres = []
+        #Check if expansion required and expand
+        ExpansionNeeded = self.MapExpansionCheck(x,y)
+
+        if ExpansionNeeded:
+         	print('Expansion Needed')
+        else:
+         	print('Expansion not needed')
 
         dx = self.Grid_Pos.copy()
-        dx[0, :, :] = np.float16(dx[0, :, :]) - x - np.int32(self.Long_Length/2)# A matrix of all the x coordinates of the cell
-        dx[1, :, :] = np.float16(dx[1, :, :]) - y - np.int32(self.Lat_Width/2) # A matrix of all the y coordinates of the cell
-        theta_to_grid = np.rad2deg(np.arctan2(dx[1, :, :], dx[0, :, :])) - (orientation )
+        dx[0, :, :] = np.float16(dx[0, :, :]) - x# A matrix of all the x coordinates of the cell
+        dx[1, :, :] = np.float16(dx[1, :, :]) - y# A matrix of all the y coordinates of the cell
+        theta_to_grid = np.array(np.rad2deg(np.arctan2(dx[1, :, :], dx[0, :, :])) - (orientation ))
+
+        # Wrap to +pi / - pi
+        theta_to_grid[theta_to_grid > 180] -= 360
+        theta_to_grid[theta_to_grid < -180] += 360
+
+        self.dist_to_grid = scipy.linalg.norm(dx, axis=0) # matrix of L2 distance to all cells from robot
+        Centre_in_robotF = self.getMapPivotPoint()
+        Coord, Val = self.UpdatePreviousInfo(Centre_in_robotF)
+        for i in Meas_Z_t.iterrows():
+            r = i[1]['Range_XY_plane'] # range measured
+            b = i[1]['Azimuth'] # bearing measured
+            free_mask = (np.abs(theta_to_grid - b) <= self.FOV/2.0) & (self.dist_to_grid < (r - self.breath/2.0))
+            occ_mask = (np.abs(theta_to_grid - b) <= self.FOV/2.0) & (np.abs(self.dist_to_grid - r) <= self.breath/2.0)
+
+            # Adjust the cells appropriately
+            self.Local_Map[occ_mask] += self.l_occ
+            self.Local_Map[free_mask] += self.l_free
+                        
+            if np.any(occ_mask ==True):
+                Tmp = {}
+                Tmp['DS'] = i
+                Tmp['x_coord'] = np.where(occ_mask==True)[0]
+                Tmp['y_coord'] = np.where(occ_mask==True)[1]
+                Tmp['id'] = i[1].name
+                self.Map2Ray_corres.append(Tmp)         
+
+        self.Local_Map[Coord] = Val
+        
+        #Plotting
+        if PltEnable == True:
+            probMap = np.exp(self.Local_Map)/(1.+np.exp(self.Local_Map)) 
+            plt.title(f"x:{np.round(Pose_X_t['x'],5)} , y:{np.round(Pose_X_t['y'],5)}, yaw:{np.round(Pose_X_t['yaw'],5)}")
+            # plt.xlim(self.Ylim_start , self.Ylim_end)
+            # plt.ylim(self.Xlim_start , self.Xlim_end)                
+            plt.imshow(probMap, cmap='Greys')
+            plt.draw()
+            plt.show() 
+            #plt.matshow(ttt)
+        return self.Local_Map
+
+    def MapExpansionCheck(self, x, y):
+        Roffset = 20
+        X_Lim = np.array([-(x+self.max_r+Roffset) , (x+self.max_r+Roffset)])
+        Y_Lim = np.array([-(y+self.max_r+Roffset) , (y+self.max_r+Roffset)])
+        quadrant =  self.ExpansionDirection(X_Lim, Y_Lim)
+        while (quadrant != -1):
+            self.expandOccupancyGrid(quadrant)
+            quadrant = self.ExpansionDirection(X_Lim, Y_Lim)
+        return True
+
+    def ExpansionDirection(self,X_Lim, Y_Lim):
+        if any(X_Lim < self.Xlim_start):
+            quadrant =1
+            self.ExpansionQuadrant(1) #expand down
+        elif any(X_Lim > self.Xlim_end):
+            quadrant =2
+            self.ExpansionQuadrant(1) #expand up
+        elif any(Y_Lim < self.Ylim_start):
+            quadrant =3
+            self.ExpansionQuadrant(1) #expand left
+        elif any(Y_Lim > self.Ylim_end):
+            quadrant =4
+            self.ExpansionQuadrant(1) #expand right
+        else:
+            quadrant = -1
+        return quadrant
+
+    def ExpandMap(self, quadrant):
+        GridShape = self.Grid_Pos.shape
+        if quadrant == 1:
+            self.ExpandQuadrant(0, 1) #expand down
+        elif quadrant == 2:
+            self.ExpandQuadrant(1, 1) # expand up
+        elif quadrant == 3:
+            self.ExpandQuadrant(1, 0)
+        else:
+            self.ExpandQuadrant(GridShape[1], 0)
+    
+    def ExpandQuadrant(self, Expansionmode):
+        GridShape = self.Grid_Pos.shape
+        Roffset = 20
+        if Expansionmode ==1:
+        	self.Xlim_start = -(self.Pose_X_t['x']+self.max_r+Roffset)
+        if Expansionmode ==2:
+        	self.Xlim_end = +(self.Pose_X_t['x']+self.max_r+Roffset)
+        if Expansionmode ==3:
+        	self.Ylim_start = -(self.Pose_X_t['y']+self.max_r+Roffset)
+        if Expansionmode ==4:
+        	self.Ylim_end = +(self.Pose_X_t['y']+self.max_r+Roffset)
+
+        MGrid = np.meshgrid( np.arange(self.Ylim_start,self.Ylim_end,self.Grid_resol) ,np.arange(self.Xlim_start,self.Xlim_end,self.Grid_resol))
+        self.Grid_Pos = np.zeros((2,191,191))
+        self.Grid_Pos[0,:,:] =  MGrid[0]
+        self.Grid_Pos[1,:,:] =  MGrid[1]
+
+    def convertRealXYToMapIdx(self, x, y):
+        #mapXLim is (2,) array for left and right limit, same for mapYLim
+        xIdx = (np.rint((x - self.mapXLim[0]) / self.unitGridSize)).astype(int)
+        yIdx = (np.rint((y - self.mapYLim[0]) / self.unitGridSize)).astype(int)
+        return xIdx, yIdx
+
+    def UpdatePreviousInfo(self,Centre_in_robotF):
+    	Occ_coord= np.where(self.Local_Map>0)
+    	Vals = self.Local_Map[Occ_coord]
+    	return Occ_coord, Vals
+    
+    def getMapPivotPoint(self):        
+        Centre_in_robotF = np.where(self.dist_to_grid==0)
+        return Centre_in_robotF
+    
+    def getScanMap(self,Meas_Z_t,Pose_X_t):
+        ScanMap = np.zeros((self.Lat_Width,self.Long_Length))
+        (x,y,orientation) = (Pose_X_t['x'] ,Pose_X_t['y'] ,Pose_X_t['yaw'])
+
+        dx = self.Grid_Pos.copy()
+        dx[0, :, :] = np.float16(dx[0, :, :]) - x# A matrix of all the x coordinates of the cell
+        dx[1, :, :] = np.float16(dx[1, :, :]) - y# A matrix of all the y coordinates of the cell
+        theta_to_grid = np.array(np.rad2deg(np.arctan2(dx[1, :, :], dx[0, :, :])) - (orientation ))
 
         # Wrap to +pi / - pi
         theta_to_grid[theta_to_grid > 180] -= 360
@@ -148,19 +278,12 @@ class Map():
         for i in Meas_Z_t.iterrows():
             r = i[1]['Range_XY_plane'] # range measured
             b = i[1]['Azimuth'] # bearing measured
-            free_mask = (np.abs(theta_to_grid - b) <= self.FOV/2.0) & (dist_to_grid < (r - self.breath/2.0))
-            occ_mask = (np.abs(theta_to_grid - b) <= self.FOV/2.0) & (np.abs(dist_to_grid - r) <= self.breath/2.0)
+            free_mask = (np.abs(theta_to_grid - b) <= self.FOV/2.0) & (self.dist_to_grid < (r - self.breath/2.0))
+            occ_mask = (np.abs(theta_to_grid - b) <= self.FOV/2.0) & (np.abs(self.dist_to_grid - r) <= self.breath/2.0)
 
             # Adjust the cells appropriately
-            self.Local_Map[occ_mask] += self.l_occ
-            self.Local_Map[free_mask] += self.l_free
-            
-        #Plotting
-        if PltEnable == True:
-            probMap = np.exp(self.Local_Map)/(1.+np.exp(self.Local_Map)) 
-            plt.title(f"x:{np.round(Pose_X_t['x'],5)} , y:{np.round(Pose_X_t['y'],5)}, yaw:{np.round(Pose_X_t['yaw'],5)}")                
-            plt.imshow(probMap, cmap='Greys')
-            plt.draw()
-            plt.show() 
-        return self.Local_Map
-                   
+            ScanMap[occ_mask] += self.l_occ
+            ScanMap[free_mask] += self.l_free    
+
+        ScanMap[Coord] = Val
+        

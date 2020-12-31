@@ -19,7 +19,7 @@ bag = rosbag.Bag('G:/DataSets/CARLA_Autopilot_ROS.bag')
 RBPF = RBPF_SLAM()
 
 #Topics in bag
-Topics =  [*bag.get_type_and_topic_info()[1]]
+#Topics =  [*bag.get_type_and_topic_info()[1]]
 
 '''
 '/carla/actor_list', '/carla/ego_vehicle/gnss/gnss1/fix', 

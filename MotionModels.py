@@ -21,26 +21,26 @@ for f in extracted_files:
             data = pickle.loads(fdesc.read())
 #################################### Sample Based Models ############################################
 #Odometry(Sampling)
-def Odometry_Motion_Model_Sample(Meas_X_t_1, Meas_X_t , Updtd_X_t_1):
+def Odometry_Motion_Model_Sample(Meas_X_t_1, Meas_X_t , Est_X_t_1):
     #Est Init
     Est_X_t = {}
     #Params
-    a1 = 1
-    a2 = 1
-    a3 = 1
-    a4 = 1
+    a1 = 0.05   #m/m
+    a2 = 0.001  #m/deg
+    a3 = 5      #deg/m
+    a4 = 0.05   #deg/deg
     
     Del_rot1 = np.rad2deg( np.arctan2( (Meas_X_t['y'] - Meas_X_t_1['y']) , (Meas_X_t['x'] - Meas_X_t_1['x']) ) )-Meas_X_t_1['yaw']
     Del_trans = np.hypot( ((Meas_X_t_1['y'] - Meas_X_t['y'])) , (Meas_X_t_1['x'] - Meas_X_t['x']) )
     Del_rot2 = Meas_X_t['yaw'] - Meas_X_t_1['yaw'] - Del_rot1
     
-    Del_est_rot1  = Del_rot1 - Sample_Gaus_dist( a1*np.deg2rad(Del_rot1) + a2*Del_trans )
-    Del_est_trans  = Del_trans - Sample_Gaus_dist( a3*Del_trans + a4*(np.deg2rad(Del_rot1+Del_rot2) ))
-    Del_est_rot2 = Del_rot2 - Sample_Gaus_dist( a1*np.deg2rad(Del_rot2) + a2*Del_trans )
+    Del_est_rot1  = Del_rot1 -   Sample_Gaus_dist( a1*Del_rot1**2  + a2*Del_trans**2 )
+    Del_est_trans  = Del_trans - Sample_Gaus_dist( a3*Del_trans**2 + a4*Del_rot1**2 + a4*Del_rot2**2 )
+    Del_est_rot2 = Del_rot2 -    Sample_Gaus_dist( a1*Del_rot2**2  + a2*Del_trans**2 )
     
-    Est_X_t['x'] = Updtd_X_t_1['x'] + Del_est_trans*np.cos( np.deg2rad(Updtd_X_t_1['yaw'] + Del_est_rot1 ))
-    Est_X_t['y'] = Updtd_X_t_1['y'] + Del_est_trans*np.sin( np.deg2rad(Updtd_X_t_1['yaw'] + Del_est_rot1 ))
-    Est_X_t['yaw'] = Updtd_X_t_1['yaw'] + Del_est_rot1 + Del_est_rot2 
+    Est_X_t['x'] = Est_X_t_1['x'] + Del_est_trans*np.cos( np.deg2rad(Est_X_t_1['yaw'] + Del_est_rot1 ))
+    Est_X_t['y'] = Est_X_t_1['y'] + Del_est_trans*np.sin( np.deg2rad(Est_X_t_1['yaw'] + Del_est_rot1 ))
+    Est_X_t['yaw'] = Est_X_t_1['yaw'] + Del_est_rot1 + Del_est_rot2 
     
     return Est_X_t
 

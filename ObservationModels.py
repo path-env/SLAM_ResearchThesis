@@ -37,17 +37,18 @@ def CoordinateTransform_t_1(Meas_Z_t,Meas_X_t,Meas_X_t_1):
     X = Meas_Z_t['x']
     Y = Meas_Z_t['y']
     Z = np.array([X,Y]).reshape(2,-1)
-    dx = Meas_X_t_1['x'] - Meas_X_t['x']
-    dy = Meas_X_t_1['y'] - Meas_X_t['y']
+    dx = Meas_X_t['x'] - Meas_X_t_1['x']
+    dy = Meas_X_t['y'] - Meas_X_t_1['y']
     T = np.array([dx,dy]).reshape(2,1)
-    dyaw =np.deg2rad(Meas_X_t_1['yaw'] - Meas_X_t['yaw'])
+    dyaw =np.deg2rad(Meas_X_t['yaw'] - Meas_X_t_1['yaw'])
     R = np.array([[np.cos(dyaw),-np.sin(dyaw)] , [np.sin(dyaw),np.cos(dyaw)]]).reshape(2,2)
     Meas_t = R@Z + T
     trans_Z_t['x'] = Meas_t[0,:]
     trans_Z_t['y'] = Meas_t[1,:]
-    trans_Z_t['Range_XY_plane'] = np.hypot(Meas_Z_t['x'],Meas_Z_t['y']).to_numpy()
+    trans_Z_t['Azimuth'] =np.rad2deg(np.arctan2(trans_Z_t['y'] , trans_Z_t['x'])).to_numpy()
     return trans_Z_t    
-def Likelihood_Field_Observation_Model(Meas_Z_t , Est_X_t , Map_X_t_1,Meas_X_t_1,LidarPose_X_t = {'x':0,'y':0 , 'yaw':0} ,z_hit = 0.5 ,sigma= 1, z_random=0.3 , z_max= 0.2):
+
+def Likelihood_Field_Observation_Model(Meas_Z_t , Est_X_t , Map_X_t_1,Meas_X_t_1,Map_obj,LidarPose_X_t = {'x':0,'y':0 , 'yaw':0} ,z_hit = 0.5 ,sigma= 1, z_random=0.3 , z_max= 0.2):
     likly = 1
    
     '''    
@@ -76,7 +77,7 @@ def Likelihood_Field_Observation_Model(Meas_Z_t , Est_X_t , Map_X_t_1,Meas_X_t_1
     #Find Occupied cells
     # For Occupancy grid from __inverse_sensor_model >= 0.7 are occupied and <=0.3 free and 0.5= unknown
     # For Occupancy grid from __inverse_sensor_model2 +ve are occupied and -ve are free and 0 = unknown
-    Map = Map_X_t_1.reshape(191,191)
+    Map = Map_X_t_1.reshape(Map_obj.Lat_Width,Map_obj.Long_Length)
     Map_state = np.where((Map>0))
     Host_Pose = np.array([Est_X_t['x'] ,Est_X_t['y']]).reshape(2,1)
     for i in range(len(trans_Z_t['x'])):
