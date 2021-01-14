@@ -37,17 +37,18 @@ def CoordinateTransform_t_1(Meas_Z_t,Meas_X_t,Meas_X_t_1):
     X = Meas_Z_t['x']
     Y = Meas_Z_t['y']
     Z = np.array([X,Y]).reshape(2,-1)
-    dx = Meas_X_t_1['x'] - Meas_X_t['x']
-    dy = Meas_X_t_1['y'] - Meas_X_t['y']
+    dx = Meas_X_t['x'] - Meas_X_t_1['x']
+    dy = Meas_X_t['y'] - Meas_X_t_1['y']
     T = np.array([dx,dy]).reshape(2,1)
-    dyaw =np.deg2rad(Meas_X_t_1['yaw'] - Meas_X_t['yaw'])
+    dyaw =np.deg2rad(Meas_X_t['yaw'] - Meas_X_t_1['yaw'])
     R = np.array([[np.cos(dyaw),-np.sin(dyaw)] , [np.sin(dyaw),np.cos(dyaw)]]).reshape(2,2)
     Meas_t = R@Z + T
     trans_Z_t['x'] = Meas_t[0,:]
     trans_Z_t['y'] = Meas_t[1,:]
-    trans_Z_t['Range_XY_plane'] = np.hypot(Meas_Z_t['x'],Meas_Z_t['y']).to_numpy()
+    trans_Z_t['z'] = Meas_Z_t['z'].to_numpy()
     return trans_Z_t    
-def Likelihood_Field_Observation_Model(Meas_Z_t , Est_X_t , Map_X_t_1,Meas_X_t_1,LidarPose_X_t = {'x':0,'y':0 , 'yaw':0} ,z_hit = 0.5 ,sigma= 1, z_random=0.3 , z_max= 0.2):
+
+def Likelihood_Field_Observation_Model(Meas_Z_t , Est_X_t , Map_X_t_1,Meas_X_t_1,Map_obj,LidarPose_X_t = {'x':0,'y':0 , 'yaw':0} ,z_hit = 0.5 ,sigma= 1, z_random=0.3 , z_max= 0.2):
     likly = 1
    
     '''    
@@ -66,19 +67,19 @@ def Likelihood_Field_Observation_Model(Meas_Z_t , Est_X_t , Map_X_t_1,Meas_X_t_1
     # dist = ( (MeasGlobal_Z_t_Vec[0] - Closest_x )**2 ) + ((MeasGlobal_Z_t_Vec[1] - Closest_y )**2 )
 '''
  
-    if 'Range_XY_plane' not in Meas_Z_t.keys():
-        Meas_Z_t = Lidar_3D_Preprocessing(Meas_Z_t)
     trans_Z_t = CoordinateTransform_t_1(Meas_Z_t,Est_X_t,Meas_X_t_1)
-    
+    if 'Range_XY_plane' not in trans_Z_t.keys():
+        trans_Z_t = Map_obj.Lidar_3D_Preprocessing(trans_Z_t)    
     Azi_rads = np.arctan2(trans_Z_t['y'],trans_Z_t['x'])
     Est_X_t['yaw'] = np.deg2rad(Est_X_t['yaw'])
     Sensor_Pose_inHost = np.array([[LidarPose_X_t['x']] , [ LidarPose_X_t['y']]])
     #Find Occupied cells
     # For Occupancy grid from __inverse_sensor_model >= 0.7 are occupied and <=0.3 free and 0.5= unknown
     # For Occupancy grid from __inverse_sensor_model2 +ve are occupied and -ve are free and 0 = unknown
-    Map = Map_X_t_1.reshape(191,191)
+    Map = Map_X_t_1.reshape(Map_obj.Lat_Width,Map_obj.Long_Length)
     Map_state = np.where((Map>0))
     Host_Pose = np.array([Est_X_t['x'] ,Est_X_t['y']]).reshape(2,1)
+    CG =    Map_obj.getMapPivotPoint()
     for i in range(len(trans_Z_t['x'])):
         #Rot_Matrix = np.array( [np.cos(Est_X_t['yaw']) , -np.sin(Est_X_t['yaw']), np.sin(Est_X_t['yaw']) , np.cos(Est_X_t['yaw'])]).reshape(2,2)
         Meas_in_Host = -1*trans_Z_t['Range_XY_plane'][i]*np.array([np.cos(Azi_rads[i] + Est_X_t['yaw']),np.sin(Azi_rads[i] + Est_X_t['yaw']  )]).reshape(2,1)
@@ -87,12 +88,12 @@ def Likelihood_Field_Observation_Model(Meas_Z_t , Est_X_t , Map_X_t_1,Meas_X_t_1
         Meas_Global = Host_Pose + Meas_in_Host
 
         #Laser reading to Map quadrants in the Matrix format
-        Meas_in_Matrix_x = (95 - Meas_Global[0])
-        Meas_in_Matrix_y = (95 - Meas_Global[1])
+        Meas_in_Matrix_x = (CG[0] - Meas_Global[0])
+        Meas_in_Matrix_y = (CG[1] - Meas_Global[1])
         MapIndx_x = Map_state[0][np.argmin(np.abs(Meas_in_Matrix_x - Map_state[0]))]
         MapIndx_y = Map_state[1][np.argmin(np.abs(Meas_in_Matrix_y - Map_state[1]))]
         
-        dist = min(( (95 - Meas_Global[0] - MapIndx_x)**2) + min((95 - Meas_Global[1] - MapIndx_y)**2 ))
+        dist = min(( (CG[0] - Meas_Global[0] - MapIndx_x)**2) + min((CG[1] - Meas_Global[1] - MapIndx_y)**2 ))
         temp = ( z_hit*Prob_Gaus_dist(dist,sigma) + (z_random/z_max))
         likly *=temp
     return likly
