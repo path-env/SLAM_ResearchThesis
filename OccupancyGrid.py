@@ -9,10 +9,12 @@ import pandas as pd
 import scipy
 import matplotlib.pyplot as plt
 from RemoveGroundPlane import RANSAC,Zbased
+import matplotlib.patches as patches
+import logging
 
 class Map():
     def __init__(self, Poses=None ,MapMode = 1,sceneName = None):
-        self.breath = 3
+        self.breath = 1.5
         self.FOV = 5
         self.max_r = 50 # For carla
         self.mapSize =  2*self.max_r + 91
@@ -45,10 +47,11 @@ class Map():
         self.Grid_Pos[0,:,:] =  MGrid[0]
         self.Grid_Pos[1,:,:] =  MGrid[1]
         self.Local_Map = np.zeros((self.Lat_Width,self.Long_Length))
-        #self.Grid_Pos = np.array([np.tile(np.arange(0, self.Long_Length, 1)[:,None], (1, self.Lat_Width)),np.tile(np.arange(0,self.Lat_Width, 1)[:,None].T, (self.Long_Length, 1))])
-        c = ( 0.5 * np.ones((self.Long_Length,self.Lat_Width)))
-        self.LO_t = np.log(np.divide(c,np.subtract(1,c)))
+        cc = ( 0.5 * np.ones((self.Lat_Width,self.Long_Length)))
+        self.LO_t = np.log(np.divide(cc,np.subtract(1,cc)))
         self.LO_t_i = self.LO_t   
+        self.logger = logging.getLogger('ROS_Decode.OG_MAP')
+        self.logger.info('OG_MAP Initialized')
     
     def Lidar_3D_Preprocessing(self,Meas_Z_t):
         '''
@@ -93,8 +96,13 @@ class Map():
         if 'Range_XY_plane' not in Meas_Z_t.keys():
             Meas_Z_t = self.Lidar_3D_Preprocessing(Meas_Z_t)
         InvModel = self.__inverse_sensor_model2(Pose_X_t, Meas_Z_t,PltEnable)
-        #self.LO_t_i = np.log(np.divide(InvModel,np.subtract(1,InvModel))) # + self.LO_t_i  - self.LO_t
-        return InvModel
+        #self.LO_t_i = np.log(np.divide(InvModel,np.subtract(1,InvModel)))  + self.LO_t_i  - self.LO_t
+        
+        self.LO_t_i = InvModel + self.LO_t_i  - self.LO_t
+        #Plotting
+        if PltEnable == True:
+            self.PlotMap(self.LO_t_i, Pose_X_t, 'GlobalMap')
+        return self.LO_t_i
      
     def __inverse_sensor_model(self,Pose_X_t, Meas_Z_t,PltEnable = False):
         if self.MapMode ==1:
@@ -139,13 +147,8 @@ class Map():
             (x,y,orientation) = (Pose_X_t['x'] ,Pose_X_t['y'] ,Pose_X_t['yaw'])
         self.Map2Ray_corres = []
         #Check if expansion required and expand
-        ExpansionNeeded = self.MapExpansionCheck(x,y)
-
-        if ExpansionNeeded:
-         	print('Expansion Needed')
-        else:
-         	print('Expansion not needed')
-
+        self.MapExpansionCheck(x,y)
+        self.Local_Map = np.zeros((self.Lat_Width,self.Long_Length))
         dx = self.Grid_Pos.copy()
         dx[0, :, :] = np.float16(dx[0, :, :]) - x# A matrix of all the x coordinates of the cell
         dx[1, :, :] = np.float16(dx[1, :, :]) - y# A matrix of all the y coordinates of the cell
@@ -156,8 +159,8 @@ class Map():
         theta_to_grid[theta_to_grid < -180] += 360
 
         self.dist_to_grid = scipy.linalg.norm(dx, axis=0) # matrix of L2 distance to all cells from robot
-        Centre_in_robotF = self.getMapPivotPoint()
-        Coord, Val = self.UpdatePreviousInfo(Centre_in_robotF)
+        # Centre_in_robotF = self.getMapPivotPoint()
+        # Coord, Val = self.UpdatePreviousInfo(Centre_in_robotF)
         for i in Meas_Z_t.iterrows():
             r = i[1]['Range_XY_plane'] # range measured
             b = i[1]['Azimuth'] # bearing measured
@@ -168,37 +171,45 @@ class Map():
             self.Local_Map[occ_mask] += self.l_occ
             self.Local_Map[free_mask] += self.l_free
                         
-            if np.any(occ_mask ==True):
-                Tmp = {}
-                Tmp['DS'] = i
-                Tmp['x_coord'] = np.where(occ_mask==True)[0]
-                Tmp['y_coord'] = np.where(occ_mask==True)[1]
-                Tmp['id'] = i[1].name
-                self.Map2Ray_corres.append(Tmp)         
+            # if np.any(occ_mask ==True):
+            #     Tmp = {}
+            #     Tmp['DS'] = i
+            #     Tmp['x_coord'] = np.where(occ_mask==True)[0]
+            #     Tmp['y_coord'] = np.where(occ_mask==True)[1]
+            #     Tmp['id'] = i[1].name
+            #     self.Map2Ray_corres.append(Tmp)         
 
-        self.Local_Map[Coord] = Val
+        #self.Local_Map[Coord] = Val
         
         #Plotting
         if PltEnable == True:
-            probMap = np.exp(self.Local_Map)/(1.+np.exp(self.Local_Map)) 
-            plt.title(f"x:{np.round(Pose_X_t['x'],5)} , y:{np.round(Pose_X_t['y'],5)}, yaw:{np.round(Pose_X_t['yaw'],5)}")
-            # plt.xlim(self.Ylim_start , self.Ylim_end)
-            # plt.ylim(self.Xlim_start , self.Xlim_end)                
-            plt.imshow(probMap, cmap='Greys')
-            plt.draw()
-            plt.show() 
-            #plt.matshow(ttt)
+           #self.PlotMap(self.Local_Map, Pose_X_t,'LocalMap')
+           pass
         return self.Local_Map
-
+    
+    def PlotMap(self,Map,Pose_X_t,title):
+        Veh = patches.Rectangle((Pose_X_t['x']-self.Xlim_start -3.5 , Pose_X_t['y']-self.Ylim_start-5),5,0.3,linewidth=1,edgecolor='r')          
+        probMap = np.exp(Map)/(1.+np.exp(Map)) 
+        fig,ax = plt.subplots()
+        plt.title(f"{title} x:{np.round(Pose_X_t['x'],5)} , y:{np.round(Pose_X_t['y'],5)}, yaw:{np.round(Pose_X_t['yaw'],5)}")
+        # plt.xlim(self.Ylim_start , self.Ylim_end)
+        # plt.ylim(self.Xlim_start , self.Xlim_end)
+        ax.add_patch(Veh)                
+        plt.imshow(probMap, cmap='Greys')
+#        plt.savefig('/Local/Local{title}.png')        
+        plt.draw()
+        plt.show() 
+        #plt.matshow(ttt)
+    
     def MapExpansionCheck(self, x, y):
         Roffset = 20
         X_Lim = np.array([-(x+self.max_r+Roffset) , (x+self.max_r+Roffset)])
         Y_Lim = np.array([-(y+self.max_r+Roffset) , (y+self.max_r+Roffset)])
         quadrant =  self.ExpansionDirection(X_Lim, Y_Lim)
         while (quadrant != -1):
-            self.expandOccupancyGrid(quadrant)
+            self.logger.info('Exapnding the Map in quadrant=%d',quadrant)
+            #self.expandOccupancyGrid(quadrant)
             quadrant = self.ExpansionDirection(X_Lim, Y_Lim)
-        return True
 
     def ExpansionDirection(self,X_Lim, Y_Lim):
         if any(X_Lim < self.Xlim_start):
@@ -246,7 +257,6 @@ class Map():
         self.Grid_Pos[1,:,:] =  MGrid[1]
 
     def convertRealXYToMapIdx(self, x, y):
-        #mapXLim is (2,) array for left and right limit, same for mapYLim
         xIdx = (np.rint((x - self.mapXLim[0]) / self.unitGridSize)).astype(int)
         yIdx = (np.rint((y - self.mapYLim[0]) / self.unitGridSize)).astype(int)
         return xIdx, yIdx
@@ -257,7 +267,7 @@ class Map():
     	return Occ_coord, Vals
     
     def getMapPivotPoint(self):        
-        Centre_in_robotF = np.where(self.dist_to_grid==0)
+        Centre_in_robotF = np.where(self.dist_to_grid==np.min(self.dist_to_grid))
         return Centre_in_robotF
     
     def getScanMap(self,Meas_Z_t,Pose_X_t):
@@ -278,12 +288,11 @@ class Map():
         for i in Meas_Z_t.iterrows():
             r = i[1]['Range_XY_plane'] # range measured
             b = i[1]['Azimuth'] # bearing measured
-            free_mask = (np.abs(theta_to_grid - b) <= self.FOV/2.0) & (self.dist_to_grid < (r - self.breath/2.0))
-            occ_mask = (np.abs(theta_to_grid - b) <= self.FOV/2.0) & (np.abs(self.dist_to_grid - r) <= self.breath/2.0)
+            free_mask = (np.abs(theta_to_grid - b) <= self.FOV/2.0) & (dist_to_grid < (r - self.breath/2.0))
+            occ_mask = (np.abs(theta_to_grid - b) <= self.FOV/2.0) & (np.abs(dist_to_grid - r) <= self.breath/2.0)
 
             # Adjust the cells appropriately
             ScanMap[occ_mask] += self.l_occ
-            ScanMap[free_mask] += self.l_free    
-
-        ScanMap[Coord] = Val
+            ScanMap[free_mask] += self.l_free 
+        return ScanMap
         
