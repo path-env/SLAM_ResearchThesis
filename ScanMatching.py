@@ -378,29 +378,37 @@ class ICP():
         prev_error = 0
         dist_error = 10000
         loop_cnt = 0
-        OldMeas = Meas_Z_t.copy()
+        actMeas = Meas_Z_t.copy()
+        #Transform to the estimated pose
         Meas_Z_t = rotate(Est_X_t['yaw']) @ Meas_Z_t + np.array([Est_X_t['x'], Est_X_t['y']]).reshape(2,-1)
-        # Align scans
-        while np.abs(prev_error - dist_error) > threshold:
-            prev_error = dist_error
-            nbrs = NearestNeighbors(n_neighbors=1, algorithm='auto').fit(Meas_Z_t.T)
-            dist, Colidx = nbrs.kneighbors(Meas_Z_t_1.T)
-
-            Colidx = Colidx[dist<1] #Use the closest point
-            Colidx = np.unique(Colidx)
-            R,T,orientation,error = self._compute_T_R(Meas_Z_t_1[:,Colidx ],Meas_Z_t[:,Colidx ])
-            
-            Meas_Z_t = R @ Meas_Z_t  +T
-            
-            dist_error = np.mean(dist)
-            loop_cnt +=1
-            if dist_error< threshold or loop_cnt > Iter:
-                break
-            
-        # Calculate T and R between old measurement  and the transformed scan    
-        R,T,orientation,error = self._compute_T_R(Meas_Z_t,OldMeas)
-        return R,T.flatten(),orientation,error
-  
+        Meas_Z_t_1 = rotate(Est_X_t_1['yaw']) @ Meas_Z_t_1 + np.array([Est_X_t_1['x'], Est_X_t_1['y']]).reshape(2,-1)
+        try:
+            while np.abs(prev_error - dist_error) > threshold:
+                prev_error = dist_error
+                nbrs = NearestNeighbors(n_neighbors=1, algorithm='auto').fit(Meas_Z_t.T)
+                dist, Colidx = nbrs.kneighbors(Meas_Z_t_1.T)
+    
+                Colidx = Colidx[dist< min(np.median(dist), 5)] #Use the closest point
+                Colidx = np.unique(Colidx)
+                R,T,orientation,alignmenterror = self._compute_T_R(Meas_Z_t_1[:,Colidx ],Meas_Z_t[:,Colidx ])
+                
+                Meas_Z_t = R @ Meas_Z_t  +T
+                dist_error = alignmenterror
+                loop_cnt +=1
+                if dist_error< threshold or loop_cnt > Iter:
+                    break
+                
+            if alignmenterror > 5: #Alignment impossible
+                print(f"Error beyond threshold @ t =")
+                alignmenterror = None
+                return R,T.flatten(),orientation,alignmenterror
+            R,T,orientation,error = self._compute_T_R(Meas_Z_t,actMeas)
+            # Calculate T and R between actual measurement  and the transformed scan
+            if np.any(np.isnan(T)):
+                print('nan')
+            return R,T.flatten(),orientation,alignmenterror
+        except Exception as e:
+            print(e)
 class RTCSM():
     def __init__(self,MapObj):
         self.OG = MapObj

@@ -24,11 +24,10 @@ for f in extracted_files:
 def Odometry_Motion_Model_Sample(Meas_X_t_1, Meas_X_t , Est_X_t_1):
     #Est Init
     Est_X_t = {}
-    K = []
     #Params
     a1 = 0.05   #m/m
     a2 = 0.001  #m/deg
-    a3 = 20      #deg/m
+    a3 = 0.05      #deg/m
     a4 = 0.05   #deg/deg
     
     Del_rot1 = np.rad2deg( np.arctan2( (Meas_X_t['y'] - Meas_X_t_1['y']) , (Meas_X_t['x'] - Meas_X_t_1['x']) ) )-Meas_X_t_1['yaw']
@@ -42,7 +41,6 @@ def Odometry_Motion_Model_Sample(Meas_X_t_1, Meas_X_t , Est_X_t_1):
     Est_X_t['x'] = Est_X_t_1['x'] + Del_est_trans*np.cos( np.deg2rad(Est_X_t_1['yaw'] + Del_est_rot1 ))
     Est_X_t['y'] = Est_X_t_1['y'] + Del_est_trans*np.sin( np.deg2rad(Est_X_t_1['yaw'] + Del_est_rot1 ))
     Est_X_t['yaw'] = Est_X_t_1['yaw'] + Del_est_rot1 + Del_est_rot2 
-    K.append([*Est_X_t.values()])
     return Est_X_t
 
 
@@ -107,24 +105,75 @@ def BicycleModel(Meas_X_k_1,In_X_k, dt , L = 4.7):
 
 ################################### CTRA Motion Model Discretized #############################################
 
-def CTRA_Motion_Model(Meas_X_k_1, dt):
+def CTRA_Motion_Model(Meas_X_k_1, cmdIn, steer, WheelBase,dt,y_dot_tolerance=1):
     #Params
-    a1 = 0.05   #m/s2
-    a2 = 0.001  #m/deg
-    a3 = 20      #deg/m
-    a4 = 0.05   #deg/deg
+    a1 = 0.5   #m/s2
+    a2 = 0.1  #m/deg
+    a3 = 2      #deg/m
+    a4 = 5   #deg/deg
     Est_X_k = {}
-    Est_X_k['v'] =      Meas_X_k_1['v'] +  Meas_X_k_1['acc'] *dt -Sample_Gaus_dist( a1* Meas_X_k_1['acc']**2  + a2*Meas_X_k_1['yaw_dot']**2 )
-    Est_X_k['yaw'] =    np.deg2rad(Meas_X_k_1['yaw']) + Meas_X_k_1['yaw_dot'] *dt -Sample_Gaus_dist( a1* Meas_X_k_1['acc']**2  + a2*Meas_X_k_1['yaw_dot']**2 )
     
-    Est_X_k['x'] =      Meas_X_k_1['x'] + ( (Est_X_k['v']* Meas_X_k_1['yaw_dot']*np.sin(Est_X_k['yaw'])) + (Meas_X_k_1['acc']*np.cos(Est_X_k['yaw']))-
-                                         (Meas_X_k_1['v']* Meas_X_k_1['yaw_dot']*np.sin(Meas_X_k_1['yaw'])) - 
-                                         (Meas_X_k_1['acc']*np.cos(Meas_X_k_1['yaw'])))  -Sample_Gaus_dist( a1* Meas_X_k_1['acc']**2  + a2*Meas_X_k_1['yaw_dot']**2 )
     
-    Est_X_k['y'] =      Meas_X_k_1['y'] +  ( -(Est_X_k['v']* Meas_X_k_1['yaw_dot']*np.cos(Est_X_k['yaw'])) + (Meas_X_k_1['acc']*np.sin(Est_X_k['yaw']))+
-                                         (Meas_X_k_1['v']* Meas_X_k_1['yaw_dot']*np.cos(Meas_X_k_1['yaw'])) - 
-                                         (Meas_X_k_1['acc']*np.sin(Meas_X_k_1['yaw'])))  -Sample_Gaus_dist( a1* Meas_X_k_1['acc']**2  + a2*Meas_X_k_1['yaw_dot']**2 )
-    Est_X_k['yaw_dot']= Meas_X_k_1['yaw_dot'] 
-    Est_X_k['acc'] =    Meas_X_k_1['acc']
-    Est_X_k['yaw'] =    np.rad2deg(Est_X_k['yaw'])
+    del_v =  cmdIn[1] *dt
+    Est_X_k['v'] = Meas_X_k_1['v'] + del_v #-Sample_Gaus_dist( a1* cmdIn[0]**2  + a2*cmdIn[1]**2 )
+    
+    #del_yawdot = Meas_X_k_1['v'] * np.tan(steer) *dt /WheelBase
+    # del_yawdot = dt*cmdIn[0]
+    # Meas_X_k_1['yaw_dot'] = cmdIn[0]
+    # Est_X_k['yaw_dot']= cmdIn[0] -del_yawdot
+    
+    del_yaw =  cmdIn[0] *dt
+    Est_X_k['yaw'] =  np.deg2rad(Meas_X_k_1['yaw']) - del_yaw
+    Meas_X_k_1['yaw'] = np.deg2rad(Meas_X_k_1['yaw'])
+    if  cmdIn[0] > y_dot_tolerance:
+        # del_x = Est_X_k['v']*(np.sin(Est_X_k['yaw'])/Est_X_k['yaw_dot']) -\
+        #         Meas_X_k_1['v']*(np.sin(Meas_X_k_1['yaw'])/Meas_X_k_1['yaw_dot']) +\
+        #         cmdIn[1]*((np.cos(Est_X_k['yaw'])/Est_X_k['yaw_dot']**2) -(np.cos(Meas_X_k_1['yaw'])/Meas_X_k_1['yaw_dot']**2))
+                
+        # del_y = -Est_X_k['v']*(np.cos(Est_X_k['yaw'])/Est_X_k['yaw_dot']) +\
+        #         Meas_X_k_1['v']*(np.cos(Meas_X_k_1['yaw'])/Meas_X_k_1['yaw_dot']) +\
+        #         cmdIn[1]*((np.sin(Est_X_k['yaw'])/Est_X_k['yaw_dot']**2) -(np.sin(Meas_X_k_1['yaw'])/Meas_X_k_1['yaw_dot']**2))
+                
+        del_x = ( (Est_X_k['v']* cmdIn[0]*np.sin(Est_X_k['yaw'])) + (cmdIn[1] *np.cos(Est_X_k['yaw']))-
+                                          (Meas_X_k_1['v']* cmdIn[0]*np.sin(Meas_X_k_1['yaw'])) - 
+                                          (cmdIn[1]*np.cos(Meas_X_k_1['yaw'])))/( cmdIn[0]**2) 
+    
+        del_y = ( -(Est_X_k['v']* cmdIn[0]*np.cos(Est_X_k['yaw'])) + (cmdIn[1] *np.sin(Est_X_k['yaw']))+
+                                          (Meas_X_k_1['v']* cmdIn[0]*np.cos(Meas_X_k_1['yaw'])) - 
+                                          (cmdIn[1] *np.sin(Meas_X_k_1['yaw'])))/( cmdIn[0]**2)    
+    else:
+        del_x = (Est_X_k['v']*dt + (cmdIn[1] *(dt**2))/2 )*np.cos(Est_X_k['yaw'])
+        
+        del_y = (Est_X_k['v']*dt + (cmdIn[1]  *(dt**2))/2 )*np.sin(Est_X_k['yaw'])
+        
+    Est_X_k['x'] =      Meas_X_k_1['x'] + del_x -  Sample_Gaus_dist( a1* cmdIn[0]**2  + a2*cmdIn[1]**2 )   
+    Est_X_k['y'] =      Meas_X_k_1['y'] + del_y - Sample_Gaus_dist( a1* cmdIn[0]**2  + a2*cmdIn[1]**2 )
+    
+    Est_X_k['acc'] =    cmdIn[1]
+    Est_X_k['yaw'] =    np.rad2deg(Est_X_k['yaw'])#-Sample_Gaus_dist( a3* cmdIn[0]**2  + a4*cmdIn[1]**2 )
+    
+    prvSt = np.zeros((6,1))
+    prvSt[0:4,:] = np.array([*Meas_X_k_1.values()][:4]).reshape(4,1) #x,y,yaw,v
+    G = np.zeros((6,2))
+    G[4,0], G[5,1] = dt,dt
+    cmdIn = cmdIn # - np.array([Sample_Gaus_dist(a1*cmdIn[0]**2 + a2*cmdIn[1]**2), Sample_Gaus_dist(a1*cmdIn[0]**2  + a2*cmdIn[1]**2 )]).rehsape(2,1)
+    f_CTRA = np.zeros((6,1))
+    f_CTRA[0:4,0] = del_x, del_y, del_yaw, del_v#, del_yawdot
+    
+    Est = prvSt + f_CTRA  + G @ cmdIn 
+    return Est_X_k
+
+def VMM(Meas_X_k_1, cmdIn,dt):
+    a1 = 0.05  
+    a2 = 0.05  
+    a3 = 0.05      #deg/m
+    a4 = 0.05   #deg/deg
+    a5,a6 = 0.001,0.001
+    v_hat = cmdIn[1] + Sample_Gaus_dist(a1 * cmdIn[0]**2 + a2*cmdIn[1]**2)
+    w_hat = cmdIn[0] + Sample_Gaus_dist(a3 * cmdIn[0]**2 + a4*cmdIn[1]**2)
+    crct = Sample_Gaus_dist(a5*cmdIn[0]**2 + a6*cmdIn[1]**2 )
+    Est_X_k = {}
+    Est_X_k['x'] = Meas_X_k_1['x'] - (v_hat/w_hat)*np.sin(Meas_X_k_1['yaw']) + (v_hat/w_hat)*np.sin(Meas_X_k_1['yaw'] + w_hat*dt)
+    Est_X_k['y'] = Meas_X_k_1['y'] + (v_hat/w_hat)*np.cos(Meas_X_k_1['yaw']) - (v_hat/w_hat)*np.cos(Meas_X_k_1['yaw'] + w_hat*dt)
+    Est_X_k['yaw'] = Meas_X_k_1['yaw']  + w_hat*dt + crct*dt
     return Est_X_k

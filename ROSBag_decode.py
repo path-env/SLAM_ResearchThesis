@@ -8,7 +8,7 @@ Created on Mon Dec 14 19:20:24 2020
 import rosbag
 from FastSLAM2_Proposal_W_Obsv import FastSLAM2
 from squaternion import Quaternion
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 from ParticleFilter import RBPF_SLAM
 import numpy as np
 import logging
@@ -16,24 +16,24 @@ import logging
 bag = rosbag.Bag('G:/DataSets/BagFiles/CARLA_Autopilot_ROS.bag') #508 - 620
 
 #FS = FastSLAM2()
-#Logging
+# #Logging
 logger = logging.getLogger('ROS_Decode')
-logger.setLevel(logging.DEBUG)
+# logger.setLevel(logging.DEBUG)
 
-fh = logging.FileHandler('ROS_Decode.log')
-fh.setLevel(logging.DEBUG)
+# fh = logging.FileHandler('ROS_Decode.log')
+# fh.setLevel(logging.DEBUG)
 
-# create console handler with a higher log level
-ch = logging.StreamHandler()
-ch.setLevel(logging.WARNING)
+# # create console handler with a higher log level
+# ch = logging.StreamHandler()
+# ch.setLevel(logging.WARNING)
 
-# create formatter and add it to the handlers
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-fh.setFormatter(formatter)
-ch.setFormatter(formatter)
+# # create formatter and add it to the handlers
+# formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+# fh.setFormatter(formatter)
+# ch.setFormatter(formatter)
 
-# add the handlers to the logger
-logger.addHandler(fh)
+# # add the handlers to the logger
+# logger.addHandler(fh)
 #logger.addHandler(ch)
 RBPF = RBPF_SLAM()
 
@@ -73,6 +73,7 @@ for topic, msg, t in bag.read_messages(topics=['/carla/ego_vehicle/gnss/gnss1/fi
     if  topic == '/carla/ego_vehicle/vehicle_status': 
         Meas_X_t['v'] = msg.velocity
         Meas_X_t['acc'] = msg.acceleration.linear.x
+        Meas_X_t['steer'] = msg.control.steer #radians
         Vel_avail =1
         logger.info(f"Velocity for {t.to_sec()} extracted")
         
@@ -124,11 +125,14 @@ for topic, msg, t in bag.read_messages(topics=['/carla/ego_vehicle/gnss/gnss1/fi
         logger.info(f"IMU for {t.to_sec()} extracted") 
         
     if Imu_avail and Gps_avail and Odom_avail and Lidar_avail and Vel_avail and veh_info:            
-        #FS.run(Meas_X_t_1,Meas_X_t,Meas_Z_t)    
-        RBPF.Run(Meas_X_t,Meas_Z_t, GPS_Z_t,IMU_Z_t)
-        logger.info(f"Time { t.to_sec()} processed")
+        #FS.run(Meas_X_t_1,Meas_X_t,Meas_Z_t)
+        if (Meas_X_t['v']>0.01 or Meas_X_t['v'] <-0.01):
+            RBPF.run(Meas_X_t,Meas_Z_t, GPS_Z_t,IMU_Z_t)
+            logger.info(f"Time { t.to_sec()} processed")
+        #RBPF.groundtruth(Meas_X_t,Meas_Z_t, GPS_Z_t,IMU_Z_t)
+
         Gps_avail ,Imu_avail,Lidar_avail ,Odom_avail,Vel_avail,veh_info = 0, 0,0,0,0,1
     
     old_t = t.to_sec()
-    
+#RBPF.plot_results()    
 bag.close()

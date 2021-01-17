@@ -180,7 +180,8 @@ class Map():
             #     self.Map2Ray_corres.append(Tmp)         
 
         #self.Local_Map[Coord] = Val
-        
+        self.Local_Map = np.fliplr(self.Local_Map)
+        self.Local_Map = np.flipud(self.Local_Map)
         #Plotting
         if PltEnable == True:
            #self.PlotMap(self.Local_Map, Pose_X_t,'LocalMap')
