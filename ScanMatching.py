@@ -399,7 +399,7 @@ class ICP():
                     break
                 
             if alignmenterror > 5: #Alignment impossible
-                print(f"Error beyond threshold @ t =")
+                #print(f"Error beyond threshold @ {alignmenterror}")
                 alignmenterror = None
                 return R,T.flatten(),orientation,alignmenterror
             R,T,orientation,error = self._compute_T_R(Meas_Z_t,actMeas)

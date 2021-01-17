@@ -59,7 +59,7 @@ Lat = []
 Long = []
 g= []
 Gps_avail ,Imu_avail,Lidar_avail ,Odom_avail,old_t = 0,0 ,0,0,0
-
+max_steering_angle = 1.221730351448059
 for topic, msg, t in bag.read_messages(topics=['/carla/ego_vehicle/gnss/gnss1/fix',
                                                '/carla/ego_vehicle/odometry',
                                                '/carla/ego_vehicle/lidar/lidar1/point_cloud',
@@ -73,7 +73,7 @@ for topic, msg, t in bag.read_messages(topics=['/carla/ego_vehicle/gnss/gnss1/fi
     if  topic == '/carla/ego_vehicle/vehicle_status': 
         Meas_X_t['v'] = msg.velocity
         Meas_X_t['acc'] = msg.acceleration.linear.x
-        Meas_X_t['steer'] = msg.control.steer #radians
+        Meas_X_t['steer'] = msg.control.steer * max_steering_angle # on a scale [-1,1] of max_steering_angle
         Vel_avail =1
         logger.info(f"Velocity for {t.to_sec()} extracted")
         
@@ -119,20 +119,21 @@ for topic, msg, t in bag.read_messages(topics=['/carla/ego_vehicle/gnss/gnss1/fi
         IMU_Z_t['yaw'] =  Eul[2]
         IMU_Z_t['t']= t.to_sec()
         orientation = {'x':msg.orientation.x , 'y':msg.orientation.y , 'z':msg.orientation.z, 'w':msg.orientation.w }
-        # Ang_vel = {'x':msg.angular_velocity.x , 'y':msg.angular_velocity.y , 'z':msg.angular_velocity.z }
+        Ang_vel = {'x':msg.angular_velocity.x , 'y':msg.angular_velocity.y , 'z':msg.angular_velocity.z }
+        IMU_Z_t['ang_vel'] = Ang_vel['z']
         # lin_acc =  {'x':msg.linear_acceleration.x , 'y':msg.linear_acceleration.y , 'z':msg.linear_acceleration.z }
         Imu_avail =1
         logger.info(f"IMU for {t.to_sec()} extracted") 
         
     if Imu_avail and Gps_avail and Odom_avail and Lidar_avail and Vel_avail and veh_info:            
         #FS.run(Meas_X_t_1,Meas_X_t,Meas_Z_t)
-        if (Meas_X_t['v']>0.01 or Meas_X_t['v'] <-0.01):
-            RBPF.run(Meas_X_t,Meas_Z_t, GPS_Z_t,IMU_Z_t)
-            logger.info(f"Time { t.to_sec()} processed")
+        #if (Meas_X_t['v']>0.01 or Meas_X_t['v'] <-0.01):
+        RBPF.run(Meas_X_t,Meas_Z_t, GPS_Z_t,IMU_Z_t)
+        logger.info(f"Time { t.to_sec()} processed")
         #RBPF.groundtruth(Meas_X_t,Meas_Z_t, GPS_Z_t,IMU_Z_t)
 
         Gps_avail ,Imu_avail,Lidar_avail ,Odom_avail,Vel_avail,veh_info = 0, 0,0,0,0,1
     
     old_t = t.to_sec()
-#RBPF.plot_results()    
+RBPF.plot_results()    
 bag.close()

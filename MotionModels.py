@@ -105,12 +105,12 @@ def BicycleModel(Meas_X_k_1,In_X_k, dt , L = 4.7):
 
 ################################### CTRA Motion Model Discretized #############################################
 
-def CTRA_Motion_Model(Meas_X_k_1, cmdIn, steer, WheelBase,dt,y_dot_tolerance=1):
+def CTRA_Motion_Model(Meas_X_k_1, cmdIn, WheelBase,dt,y_dot_tolerance=1):
     #Params
-    a1 = 0.5   #m/s2
-    a2 = 0.1  #m/deg
-    a3 = 2      #deg/m
-    a4 = 5   #deg/deg
+    a1 = 0.05   #m/m
+    a2 = 0.001  #m/deg
+    a3 = 0.05      #deg/m
+    a4 = 0.05   #deg/deg
     Est_X_k = {}
     
     
@@ -150,7 +150,18 @@ def CTRA_Motion_Model(Meas_X_k_1, cmdIn, steer, WheelBase,dt,y_dot_tolerance=1):
     Est_X_k['y'] =      Meas_X_k_1['y'] + del_y - Sample_Gaus_dist( a1* cmdIn[0]**2  + a2*cmdIn[1]**2 )
     
     Est_X_k['acc'] =    cmdIn[1]
-    Est_X_k['yaw'] =    np.rad2deg(Est_X_k['yaw'])#-Sample_Gaus_dist( a3* cmdIn[0]**2  + a4*cmdIn[1]**2 )
+
+    # xMove, yMove = Est_X_k['x'] - Meas_X_k_1['x'], Est_X_k['y'] - Meas_X_k_1['y']
+    # move = np.sqrt(xMove ** 2 + yMove ** 2)
+    # if move != 0:
+    #     if yMove > 0:
+    #         Est_X_k['yaw'] = np.arccos(xMove / move)
+    #     else:
+    #         Est_X_k['yaw'] = -np.arccos(xMove / move)
+    # else:
+    #     Est_X_k['yaw'] = None  
+    
+    Est_X_k['yaw'] =    np.rad2deg(Est_X_k['yaw'])-Sample_Gaus_dist( a3* cmdIn[0]**2  + a4*cmdIn[1]**2 )
     
     prvSt = np.zeros((6,1))
     prvSt[0:4,:] = np.array([*Meas_X_k_1.values()][:4]).reshape(4,1) #x,y,yaw,v
