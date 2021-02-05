@@ -18,44 +18,41 @@ class Map():
     def __init__(self, Poses=None ,MapMode = 1,sceneName = None):
         self.breath = 1.5
         self.FOV = 5
-        self.max_r = 50 # For carla
-        self.mapSize =  2*self.max_r + 91
+        self.max_lidar_r = 50 # For carla
+        self.mapSize =  2*self.max_lidar_r + 91
         self.l_occ = np.log(0.65/0.35)
         self.l_free = np.log(0.35/0.65)
         self.l_unknown = 0.5
         self.MapMode = 2
+        self.Roffset = 5
         self.SceneName = sceneName
         self.Grid_resol = 1 # a x a m cell
-        self.Angular_resol = np.rad2deg(np.arctan( self.Grid_resol/ self.max_r))
+        self.Angular_resol = np.rad2deg(np.arctan( self.Grid_resol/ self.max_lidar_r))
         
         if self.MapMode ==1: #Local Map
             self.Xlim_start = 0
-            self.Xlim_end = (2*self.max_r + 91)
+            self.Xlim_end = (2*self.max_lidar_r + 91)
             self.Ylim_start = (0);
-            self.Ylim_end = (2*self.max_r + 91)
+            self.Ylim_end = (2*self.max_lidar_r + 91)
             self.Lat_Width =  (self.Ylim_end -  self.Ylim_start)
             self.Long_Length =  (self.Xlim_end -  self.Xlim_start)
         else: #Global Map
             self.Grid_resol = 1
-            self.Xlim_start = (0- self.max_r - 95)
-            self.Xlim_end = (0 + self.max_r + 96)
-            self.Ylim_start = (0 - self.max_r - 95)
-            self.Ylim_end = (0 + self.max_r + 96)    
+            self.Xlim_start = (0- self.max_lidar_r - 95)
+            self.Xlim_end = (0 + self.max_lidar_r + 96)
+            self.Ylim_start = (0 - self.max_lidar_r - 95)
+            self.Ylim_end = (0 + self.max_lidar_r + 96)    
             self.Lat_Width = np.int32((self.Ylim_end -  self.Ylim_start)/self.Grid_resol)
             self.Long_Length = np.int32((self.Xlim_end -  self.Xlim_start)/self.Grid_resol)
             
-        MGrid = np.meshgrid( np.arange(self.Ylim_start,self.Ylim_end,self.Grid_resol) ,np.arange(self.Xlim_start,self.Xlim_end,self.Grid_resol))
-        self.Grid_Pos = np.zeros((2,self.Lat_Width,self.Long_Length))
-        self.Grid_Pos[0,:,:] =  MGrid[0]
-        self.Grid_Pos[1,:,:] =  MGrid[1]
-        self.Local_Map = np.zeros((self.Lat_Width,self.Long_Length))
+        self._createGrid()
+        self.Local_Map = np.zeros(())
         cc = ( 0.5 * np.ones((self.Lat_Width,self.Long_Length)))
         self.LO_t = np.log(np.divide(cc,np.subtract(1,cc)))
         self.LO_t_i = self.LO_t   
         self.logger = logging.getLogger('ROS_Decode.OG_MAP')
         self.logger.info('OG_MAP Initialized')
-    
-    
+        
     def Update(self,Pose_X_t,Meas_Z_t,PltEnable):
         '''
         Parameters
@@ -97,10 +94,10 @@ class Map():
                 Almostthere = np.argmin(np.abs(np.subtract(Azi2cell,Azi_vec)))   
                 Range_meas = Range_vec[Almostthere]
                 Azi_meas = Azi_vec[Almostthere]
-                if R2cell > min(self.max_r,(Range_meas +(self.breath/2))) or (abs(Azi2cell-Azi_meas) >self.FOV/2):
+                if R2cell > min(self.max_lidar_r,(Range_meas +(self.breath/2))) or (abs(Azi2cell-Azi_meas) >self.FOV/2):
                     self.Local_Map[row_ind- (-Limits), col_ind-(-Limits)] = self.l_unknown
                     continue
-                if Range_meas < self.max_r and  (abs(R2cell - Range_meas)<(self.breath/2)):
+                if Range_meas < self.max_lidar_r and  (abs(R2cell - Range_meas)<(self.breath/2)):
                     self.Local_Map[row_ind- (-Limits), col_ind-(-Limits)] =  self.l_occ
                     continue
                 if R2cell < Range_meas:
@@ -169,8 +166,8 @@ class Map():
         probMap = np.exp(Map)/(1.+np.exp(Map)) 
         fig,ax = plt.subplots()
         plt.title(f"{title} x:{np.round(Pose_X_t['x'],5)} , y:{np.round(Pose_X_t['y'],5)}, yaw:{np.round(Pose_X_t['yaw'],5)}")
-        # plt.xlim(self.Ylim_start , self.Ylim_end)
-        # plt.ylim(self.Xlim_start , self.Xlim_end)
+        # plt.ylim(self.Ylim_start , self.Ylim_end)
+        # plt.xlim(self.Xlim_start , self.Xlim_end)
         ax.add_patch(Veh)                
         plt.imshow(probMap, cmap='Greys')
 #        plt.savefig('/Local/Local{title}.png')        
@@ -179,9 +176,11 @@ class Map():
         #plt.matshow(ttt)
     
     def MapExpansionCheck(self, x, y):
-        Roffset = 20
-        X_Lim = np.array([-(x+self.max_r+Roffset) , (x+self.max_r+Roffset)])
-        Y_Lim = np.array([-(y+self.max_r+Roffset) , (y+self.max_r+Roffset)])
+        self.Pose_X_t = {}
+        self.Pose_X_t['x'] = x
+        self.Pose_X_t['y'] = y
+        X_Lim = np.array([np.round(x-(self.max_lidar_r+self.Roffset)) , np.round(x+self.max_lidar_r+self.Roffset)])
+        Y_Lim = np.array([np.round(y-(self.max_lidar_r+self.Roffset)) , np.round(y+self.max_lidar_r+self.Roffset)])
         quadrant =  self.ExpansionDirection(X_Lim, Y_Lim)
         while (quadrant != -1):
             self.logger.info('Exapnding the Map in quadrant=%d',quadrant)
@@ -191,17 +190,18 @@ class Map():
     def ExpansionDirection(self,X_Lim, Y_Lim):
         if any(X_Lim < self.Xlim_start):
             quadrant =1
-            self.ExpansionQuadrant(1) #expand down
+            self.ExpandQuadrant(1,X_Lim, Y_Lim) #expand down
         elif any(X_Lim > self.Xlim_end):
             quadrant =2
-            self.ExpansionQuadrant(1) #expand up
+            self.ExpandQuadrant(2, X_Lim, Y_Lim) #expand up
         elif any(Y_Lim < self.Ylim_start):
             quadrant =3
-            self.ExpansionQuadrant(1) #expand left
+            self.ExpandQuadrant(3, X_Lim, Y_Lim) #expand left
         elif any(Y_Lim > self.Ylim_end):
             quadrant =4
-            self.ExpansionQuadrant(1) #expand right
+            self.ExpandQuadrant(4, X_Lim, Y_Lim) #expand right
         else:
+            self._createGrid()
             quadrant = -1
         return quadrant
 
@@ -216,20 +216,24 @@ class Map():
         else:
             self.ExpandQuadrant(GridShape[1], 0)
     
-    def ExpandQuadrant(self, Expansionmode):
+    def ExpandQuadrant(self, Expansionmode, X_Lim, Y_Lim):
         GridShape = self.Grid_Pos.shape
         Roffset = 20
         if Expansionmode ==1:
-        	self.Xlim_start = -(self.Pose_X_t['x']+self.max_r+Roffset)
+        	self.Xlim_start = X_Lim[0]
         if Expansionmode ==2:
-        	self.Xlim_end = +(self.Pose_X_t['x']+self.max_r+Roffset)
+        	self.Xlim_end = X_Lim[1]
         if Expansionmode ==3:
-        	self.Ylim_start = -(self.Pose_X_t['y']+self.max_r+Roffset)
+        	self.Ylim_start = Y_Lim[0]
         if Expansionmode ==4:
-        	self.Ylim_end = +(self.Pose_X_t['y']+self.max_r+Roffset)
+        	self.Ylim_end = Y_Lim[1]
 
-        MGrid = np.meshgrid( np.arange(self.Ylim_start,self.Ylim_end,self.Grid_resol) ,np.arange(self.Xlim_start,self.Xlim_end,self.Grid_resol))
-        self.Grid_Pos = np.zeros((2,191,191))
+    def _createGrid(self):
+        MGrid = np.meshgrid( np.arange(self.Xlim_start,self.Xlim_end,self.Grid_resol), 
+                            np.arange(self.Ylim_start,self.Ylim_end,self.Grid_resol))
+        self.Lat_Width = np.int32((self.Ylim_end -  self.Ylim_start)/self.Grid_resol)
+        self.Long_Length = np.int32((self.Xlim_end -  self.Xlim_start)/self.Grid_resol)
+        self.Grid_Pos = np.zeros((2,self.Lat_Width,self.Long_Length))
         self.Grid_Pos[0,:,:] =  MGrid[0]
         self.Grid_Pos[1,:,:] =  MGrid[1]
 
@@ -248,9 +252,11 @@ class Map():
         return Centre_in_robotF
     
     def getScanMap(self,Meas_Z_t,Pose_X_t):
-        ScanMap = np.zeros((self.Lat_Width,self.Long_Length))
         (x,y,orientation) = (Pose_X_t['x'] ,Pose_X_t['y'] ,Pose_X_t['yaw'])
-
+        
+        self.MapExpansionCheck(x,y)
+        ScanMap = np.zeros((self.Lat_Width,self.Long_Length))
+        
         dx = self.Grid_Pos.copy()
         dx[0, :, :] = np.float16(dx[0, :, :]) - x# A matrix of all the x coordinates of the cell
         dx[1, :, :] = np.float16(dx[1, :, :]) - y# A matrix of all the y coordinates of the cell
@@ -271,5 +277,10 @@ class Map():
             # Adjust the cells appropriately
             ScanMap[occ_mask] += self.l_occ
             ScanMap[free_mask] += self.l_free 
-        return ScanMap
+            
+        centre_pos = np.where(dist_to_grid==np.min(dist_to_grid))
+        c_pos = (centre_pos[0].tolist(), centre_pos[1].tolist())
+        
+        #self.PlotMap(ScanMap, Pose_X_t,'LocalMap')
+        return ScanMap,c_pos, dist_to_grid, theta_to_grid
         

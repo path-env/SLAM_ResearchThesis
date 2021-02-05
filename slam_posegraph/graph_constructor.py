@@ -6,6 +6,7 @@ Created on Tue Jan 12 18:50:29 2021
 """
 
 import numpy as np
+import matplotlib.pyplot as plt
 #from  MotionModel import CTRA_Motion_Model
 
 from libs.scan_matching import ICP
@@ -14,31 +15,40 @@ from utils.tools import rotate , translate, Lidar_3D_Preprocessing
 class Graph():
     def __init__(self):
         self.SM = ICP()
-        self.Meas_X_t_1 = {}
+        self.Meas_X_t_1 = {'x':0, 'y':0, 'yaw':0}
         self.Meas_Z_t_1 = {}
         Pos = np.zeros((3)) # x,y,yaw,t,id
         self.Node= [{'pos': Pos, 'id':0, 't':0}]
         self.WHlBase = (1.143818969726567 + 1.367382202148434)/2
         constraint = np.zeros((3)) # T = x,y, R = yaw
-        self.Edge= [{'con': constraint, 'info_mat':np.eye(3,3), 'node_id':[] ,'error': 0, 'chi2':0}]      
+        self.Edge= [{'con': constraint, 'info_mat':np.eye(3,3), 'node_id':[0,0] ,'error': 0, 'chi2':0}]      
         self.iteration = 0
         
     def create_graph(self,Meas_X_t, Meas_Z_t):
         Meas_Z_t = Lidar_3D_Preprocessing(Meas_Z_t)
-        self.iteration+=1
-        Pose = np.array([*Meas_X_t.values()][3:6])
-        self._addNode(Pose, Meas_X_t['t'])
-        
-        if self.iteration==1:
+        if self._nodeRequired(Meas_X_t):
+            self.iteration+=1
+            Pose = np.array([*Meas_X_t.values()][3:6])
+            self._addNode(Pose, Meas_X_t['t'])
+            
+            if self.iteration==1:
+                self.Meas_Z_t_1 = Meas_Z_t.copy()
+                self.Meas_X_t_1 = Meas_X_t.copy()
+                return None
+    
+            newNode = self.Node[-1]
+            oldNode = self.Node[-2]
+            self._addObsvEdge(newNode, oldNode, Meas_Z_t)
             self.Meas_Z_t_1 = Meas_Z_t.copy()
             self.Meas_X_t_1 = Meas_X_t.copy()
-            return None
-
-        newNode = self.Node[-1]
-        oldNode = self.Node[-2]
-        self._addObsvEdge(newNode, oldNode, Meas_Z_t)
-        self.Meas_Z_t_1 = Meas_Z_t.copy()
-        self.Meas_X_t_1 = Meas_X_t.copy()
+        
+    def _nodeRequired(self,Meas_X_t):
+        dist = np.sqrt((self.Meas_X_t_1['x'] - Meas_X_t['x'])**2 + (self.Meas_X_t_1['y'] - Meas_X_t['y'])**2)
+        yaw = self.Meas_X_t_1['yaw'] - Meas_X_t['yaw']
+        if dist>10 or yaw >3:
+            return True
+        else:
+            return False
         
     def _addNode(self, newPose,t):
         #State vector
@@ -76,7 +86,8 @@ class Graph():
         temp = np.append(T,RT['yaw']).reshape(3,1)
         tempEdge = {'con': temp, 'info_mat':np.eye(3,3), 'node_id':[newNode['id'], oldNode['id']]}
         Er = self._chi2(newNode, oldNode, Meas_Z_t.to_numpy().T, RT)
-        self.Edge.append( tempEdge.update(Er))
+        tempEdge.update(Er)
+        self.Edge.append(tempEdge)
     
     def _chi2(self, newNode, oldNode, Meas_Z_t, RT):
         error = self._errorfunc(newNode, oldNode, Meas_Z_t, RT)
@@ -124,8 +135,14 @@ class Graph():
             if np.array_equal(E['id'], [Id_i, Id_j]):
                 return E['con']
     def plot(self):
-        pass
-    
+        I = np.zeros(3)
+        for N in self.Node:
+           I = np.vstack((I, N['pos']))
+        plt.plot(I[2:,0], I[2:,1],'g',marker=(6,0, I[1,2]),markersize= 8, label='Graph')
+        plt.grid('on')
+        plt.legend(loc = 'best')
+        plt.show()
+        
 if __name__ == '__main__':
     Gp = Graph()
     Gp.create_graph(Meas_X_t , Meas_Z_t )

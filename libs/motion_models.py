@@ -106,7 +106,6 @@ def CTRA_Motion_Model(Meas_X_k_1, cmdIn, WheelBase,dt,y_dot_tolerance=1):
     a4 = 0.05   #deg/deg
     Est_X_k = {}
     
-    
     del_v =  (cmdIn[2]-cmdIn[1]) *(dt**2)/2
     Est_X_k['v'] = Meas_X_k_1['v'] + del_v -Sample_Gaus_dist( a1* cmdIn[0]**2  + a2*cmdIn[1]**2 )
     

@@ -11,7 +11,8 @@ from squaternion import Quaternion
 import numpy as np
 import logging
 
-from slam_posegraph.graph_constructor import Graph  
+from slam_posegraph.graph_constructor import Graph
+from slam_posegraph.graph_optimizer import ManifoldOptimizer
 from slam_particlefilter.gmapping import FastSLAM2
 from slam_particlefilter.particle_filter import RBPF_SLAM
 
@@ -39,7 +40,8 @@ def ROS_bag_run():
     # logger.addHandler(fh)
     #logger.addHandler(ch)
     RBPF = RBPF_SLAM()
-    Gp = Graph()
+    #Gp = Graph()
+    #Opt = ManifoldOptimizer()
     #Topics in bag
     #Topics =  [*bag.get_type_and_topic_info()[1]]
     
@@ -132,8 +134,8 @@ def ROS_bag_run():
             #FS.run(Meas_X_t_1,Meas_X_t,Meas_Z_t)
             #if (Meas_X_t['v']>0.01 or Meas_X_t['v'] <-0.01):
                 
-            Gp.create_graph(Meas_X_t , Meas_Z_t )
-    #        RBPF.run(Meas_X_t,Meas_Z_t, GPS_Z_t,IMU_Z_t)
+            #Gp.create_graph(Meas_X_t , Meas_Z_t )
+            RBPF.run(Meas_X_t,Meas_Z_t, GPS_Z_t,IMU_Z_t)
             logger.info(f"Time { t.to_sec()} processed")
             #RBPF.groundtruth(Meas_X_t,Meas_Z_t, GPS_Z_t,IMU_Z_t)
     
@@ -141,6 +143,8 @@ def ROS_bag_run():
         
         old_t = t.to_sec()
     #RBPF.plot_results()    
+    Gp.plot()
+    #Opt.optimize(Gp)
     bag.close()
     
 if __name__ == '__main__':

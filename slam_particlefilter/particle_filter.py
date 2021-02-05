@@ -16,7 +16,8 @@ import logging
 from libs.occupancy_grid import Map
 from libs.motion_models import VMM, Odometry_Motion_Model_Sample, CTRA_Motion_Model
 from libs.observation_models import Likelihood_Field_Observation_Model
-from libs.scan_matching import ICP
+from libs.scan_matching import ICP, RTCSM
+from utils.tools import Lidar_3D_Preprocessing
 
 plt.rcParams.update({'font.size': 7})
 
@@ -25,11 +26,9 @@ class RBPF_SLAM():
         # Parameters
         self.Particle_Cnt = 10
         self.iteration = 0
-        self.fig = plt.figure()
-        self.ax1 = self.fig.add_subplot(1, 1, 1)
-        self.MapSize = 100  # Local Map size
-        self.SM = ICP()
-        self.OG = Map()
+        # self.fig = plt.figure()
+        # self.ax1 = self.fig.add_subplot(1, 1, 1)
+        self.MapSize = 100  # Local Map siz
         self.logger = logging.getLogger('ROS_Decode.RBPF_SLAM')
         self.logger.info('creating an instance of RBPF_SLAM')
         self.prev_scan_update = {'x': 0, 'y': 0, 'yaw': 0}
@@ -86,7 +85,7 @@ class RBPF_SLAM():
                 # Est_X_t['v'] = 0
                 #Meas_X_t['yaw_dot'] = Meas_X_t['v'] * (np.tan(Meas_X_t['steer'])/self.WHlBase)
                 Meas_X_t['yaw_dot'] = -1*IMU_Z_t['ang_vel']
-                cmdIn = np.array([Meas_X_t['yaw_dot'], Meas_X_t['acc'], self.Meas_X_t_1['acc']]).reshape(3,1)
+                cmdIn = np.array([Meas_X_t['yaw_dot'], Meas_X_t['acc'], self.Meas_X_t_1['acc']]).reshape(3,)
                 #Est_X_t = VMM(Est_X_t_1, cmdIn,dt=Meas_X_t['t'] - self.Meas_X_t_1['t']  )
                 Est_X_t = CTRA_Motion_Model(Est_X_t_1, cmdIn,self.WHlBase, dt=Meas_X_t['t'] - self.Meas_X_t_1['t'])
 
@@ -94,11 +93,16 @@ class RBPF_SLAM():
                 self.Particle_DFrame.at[i, 'y'] = Est_X_t['y']
                 self.Particle_DFrame.at[i, 'yaw'] = Est_X_t['yaw'] # degrees
                 self.Particle_DFrame.at[i, 'v'] = Est_X_t['v']
+                
+                #Est = {'x':0, 'y':0,'yaw':0}
+                self.SM.match(Est_X_t, Meas_Z_t)
                  # ScanMatch - ICP
                 _,RelativeTrans = self.SM.match(Meas_Z_t.to_numpy().T, 
                                                       self.Meas_Z_t_1.to_numpy().T, 
                                                       Est_X_t, 
                                                       Est_X_t_1)
+                # ScanMatch - RTCSM 
+                self.SM.match()
                 # Error Beyond bound
                 if RelativeTrans['error'] == None:
                     print(f"Skipping Particle update for {i}")
@@ -180,8 +184,10 @@ class RBPF_SLAM():
                 self.logger.info('RBPF_SLAM_Iteration.......%d for time = %f(s)', self.iteration, Meas_X_t['t'])
                 
                 if 'Range_XY_plane' not in Meas_Z_t.keys():
-                    Meas_Z_t = self.OG.Lidar_3D_Preprocessing(Meas_Z_t)
+                    Meas_Z_t = Lidar_3D_Preprocessing(Meas_Z_t)
                 if self.iteration == 0:
+                    self.OG = Map()
+                    self.SM = RTCSM(self.OG, Meas_X_t, Meas_Z_t)
                     self.Meas_X_t_1 = Meas_X_t.copy()
                     self._initialize(GPS_Z_t, IMU_Z_t, Meas_Z_t,Meas_X_t)
                     self.iteration += 1
@@ -319,5 +325,5 @@ class RBPF_SLAM():
         
         
 if __name__ == '__main__':
-    from ROSBag_decode import ROS_bag_run
+    from main.ROSBag_decode import ROS_bag_run
     ROS_bag_run()
