@@ -4,6 +4,11 @@ Created on Fri Nov 27 17:02:41 2020
 
 @author: MangalDeep
 """
+# To resolve VS code error
+import sys
+from pathlib import Path
+sys.path[0] = str(Path(sys.path[0]).parent)
+
 import numpy as np
 import pandas as pd
 

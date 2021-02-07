@@ -5,15 +5,20 @@ Created on Mon Dec 14 19:20:24 2020
 @author: MangalDeep
 """
 
+# To resolve VS code error
+import sys
+from pathlib import Path
+sys.path[0] = str(Path('G:\Masters-FHD\Sem3\SLAM_ResearchThesis'))
+
 import rosbag
 from squaternion import Quaternion
 #import matplotlib.pyplot as plt
 import numpy as np
 import logging
 
-from slam_posegraph.graph_constructor import Graph
-from slam_posegraph.graph_optimizer import ManifoldOptimizer
-from slam_particlefilter.gmapping import FastSLAM2
+# from slam_posegraph.graph_constructor import Graph
+# from slam_posegraph.graph_optimizer import ManifoldOptimizer
+# from slam_particlefilter.gmapping import FastSLAM2
 from slam_particlefilter.particle_filter import RBPF_SLAM
 
 def ROS_bag_run():
@@ -89,9 +94,9 @@ def ROS_bag_run():
         if topic == '/carla/ego_vehicle/odometry':  
             Quat = Quaternion(msg.pose.pose.orientation.w,msg.pose.pose.orientation.x,msg.pose.pose.orientation.y,msg.pose.pose.orientation.z)
             Eul = Quat.to_euler(degrees = True)  #(roll, pitch, yaw)
-            Meas_X_t['x'] = msg.pose.pose.position.x
-            Meas_X_t['y'] = msg.pose.pose.position.y
-            Meas_X_t['yaw'] = Eul[2]
+            Meas_X_t['x'] = msg.pose.pose.position.x + np.random.randn()*1
+            Meas_X_t['y'] = msg.pose.pose.position.y + np.random.randn()*1
+            Meas_X_t['yaw'] = Eul[2] + np.random.randn()*1
             Meas_X_t['t']= t.to_sec()
             #g.append(t.to_sec())
             Odom_avail =1
@@ -136,14 +141,14 @@ def ROS_bag_run():
                 
             #Gp.create_graph(Meas_X_t , Meas_Z_t )
             RBPF.run(Meas_X_t,Meas_Z_t, GPS_Z_t,IMU_Z_t)
-            logger.info(f"Time { t.to_sec()} processed")
-            #RBPF.groundtruth(Meas_X_t,Meas_Z_t, GPS_Z_t,IMU_Z_t)
+            #logger.info(f"Time { t.to_sec()} processed")
+            #RBPF.set_groundtruth( GPS_Z_t, IMU_Z_t, Meas_X_t)
     
             Gps_avail ,Imu_avail,Lidar_avail ,Odom_avail,Vel_avail,veh_info = 0, 0,0,0,0,1
         
         old_t = t.to_sec()
-    #RBPF.plot_results()    
-    Gp.plot()
+    RBPF.plot_results()    
+    #Gp.plot()
     #Opt.optimize(Gp)
     bag.close()
     

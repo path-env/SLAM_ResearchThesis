@@ -4,6 +4,10 @@ Created on Sat Jan 23 17:31:27 2021
 
 @author: MangalDeep
 """
+# To resolve VS code error
+import sys
+from pathlib import Path
+sys.path[0] = str(Path(sys.path[0]).parent)
 
 import numpy as np
 from scipy.sparse.linalg import spsolve

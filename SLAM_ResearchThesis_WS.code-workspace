@@ -1,0 +1,41 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "libs"
+		},
+		{
+			"path": "main"
+		},
+		{
+			"path": "slam_particlefilter"
+		},
+		{
+			"path": "slam_posegraph"
+		},
+		{
+			"path": "utils"
+		}
+
+	],
+	"settings": {
+		"python.pythonPath": "D:\\Anaconda\\python.exe",
+		"python.jediEnabled": true,
+		"python.autoComplete.extraPaths": ["G:\\Masters-FHD\\Sem3\\SLAM_ResearchThesis"]
+	},
+	"launch": {
+		"version": "0.2.0",
+		"configurations": [
+		
+			{
+				"name": "Python: Current File",
+				"type": "python",
+				"request": "launch",
+				"program": "${file}",
+				"console": "integratedTerminal"
+			}
+		]
+	}
+}

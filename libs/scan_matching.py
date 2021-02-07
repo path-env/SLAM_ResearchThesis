@@ -391,20 +391,23 @@ class ICP():
     
                 Colidx = Colidx[dist< min(np.median(dist), 5)] #Use the closest point
                 Colidx = np.unique(Colidx)
-                R,T,orientation,alignmenterror = self._compute_T_R(Meas_Z_t_1[:,Colidx ],Meas_Z_t[:,Colidx ])
+                R,T,orientation,alignmenterr = self._compute_T_R(Meas_Z_t_1[:,Colidx ],Meas_Z_t[:,Colidx ])
                 
                 Meas_Z_t = R @ Meas_Z_t  +T
-                dist_error = alignmenterror
+                dist_error = alignmenterr
                 loop_cnt +=1
                 if dist_error< threshold or loop_cnt > Iter:
                     break
-                
-            if alignmenterror > 5: #Alignment impossible
-                #print(f"Error beyond threshold @ {alignmenterror}")
-                alignmenterror = None
-            RelativeTrans = {'r':R,'T':T , 'yaw':orientation,'error':alignmenterror}
+            #print(alignmenterr)    
+            # if alignmenterr > 5: #Alignment impossible
+            #     #print(f"Error beyond threshold @ {alignmenterr}")
+            #     alignmenterr = None
+            RelativeTrans = {'r':R,'T':T , 'yaw':orientation,'error':alignmenterr}
+            #print(f"Relative Trans: {RelativeTrans}")
+            
             R,T,orientation,error = self._compute_T_R(Meas_Z_t,actMeas)
-            GlobalTrans = {'r':R,'T':T , 'yaw':orientation,'error':alignmenterror}
+            GlobalTrans = {'r':R,'T':T , 'yaw':orientation,'error':alignmenterr}
+            #print(f"Global Trans: {GlobalTrans}")
             # Calculate T and R between actual measurement  and the transformed scan
             if np.any(np.isnan(T)):
                 print('nan')
@@ -538,7 +541,6 @@ class RTCSM():
         Est_X_t = np.array([Est_X_t['x'], Est_X_t['y'], np.deg2rad(Est_X_t['yaw'])]).reshape(3,1)
         return Est_X_t, Meas_Z_t
 
-    
 class RTCSM2():
     def __init__(self,MapObj):
         self.OG = MapObj
