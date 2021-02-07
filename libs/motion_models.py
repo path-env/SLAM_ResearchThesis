@@ -107,13 +107,12 @@ def CTRA_Motion_Model(Meas_X_k_1, cmdIn, WheelBase,dt,y_dot_tolerance=1):
     Est_X_k = {}
     
     del_v =  (cmdIn[1]-cmdIn[2]) *(dt**2)/2
-    del_v = (cmdIn[1]-cmdIn[2])*dt
+    #del_v = cmdIn[1]-cmdIn[2]*dt
     Est_X_k['v'] = Meas_X_k_1['v'] + del_v #-Sample_Gaus_dist( a1* cmdIn[0]**2  + a2*cmdIn[1]**2 )   
     del_yaw =  cmdIn[0] *dt
     Est_X_k['yaw'] =  np.deg2rad(Meas_X_k_1['yaw']) + del_yaw
     Meas_X_k_1['yaw'] = np.deg2rad(Meas_X_k_1['yaw'])
     if  cmdIn[0] > y_dot_tolerance:
-    
         del_x = ( (Est_X_k['v']* cmdIn[0]*np.sin(Est_X_k['yaw'])) + (cmdIn[1] *np.cos(Est_X_k['yaw']))-
                                           (Meas_X_k_1['v']* cmdIn[0]*np.sin(Meas_X_k_1['yaw'])) - 
                                           (cmdIn[1]*np.cos(Meas_X_k_1['yaw'])))/( cmdIn[0]**2) 
@@ -128,7 +127,7 @@ def CTRA_Motion_Model(Meas_X_k_1, cmdIn, WheelBase,dt,y_dot_tolerance=1):
         
     Est_X_k['x'] =      Meas_X_k_1['x'] + del_x -  Sample_Gaus_dist( a1* cmdIn[0]**2  + a2*cmdIn[1]**2 )   
     Est_X_k['y'] =      Meas_X_k_1['y'] + del_y - Sample_Gaus_dist( a1* cmdIn[0]**2  + a2*cmdIn[1]**2 )
-    
+    Est_X_k['yaw'] =    np.rad2deg(Est_X_k['yaw']) -Sample_Gaus_dist( a3* cmdIn[0]**2  + a4*cmdIn[1]**2 )
     Est_X_k['acc'] =    cmdIn[1]
     return Est_X_k
 

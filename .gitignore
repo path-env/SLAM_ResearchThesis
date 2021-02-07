@@ -15,3 +15,4 @@ libs/__pycache__/motion_models.cpython-38.pyc
 slam_posegraph/__pycache__/graph_optimizer.cpython-38.pyc
 slam_posegraph/__pycache__/graph_constructor.cpython-38.pyc
 slam_posegraph/__pycache__/__init__.cpython-38.pyc
+.vscode/settings.json

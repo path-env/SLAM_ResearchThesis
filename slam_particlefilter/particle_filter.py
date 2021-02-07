@@ -35,9 +35,7 @@ class RBPF_SLAM():
         # Parameters
         self.Particle_Cnt = 10
         self.iteration = 0
-        self.fig, self.axs = plt.subplots(2,3, figsize=(11,15))
-        # self.fig = plt.figure()
-        # self.ax1 = self.fig.add_subplot(1, 1, 1)
+        self.fig, self.axs = plt.subplots(2,3, figsize=(15,10))
         self.MapSize = 100  # Local Map siz
         self.logger = logging.getLogger('ROS_Decode.RBPF_SLAM')
         self.logger.info('creating an instance of RBPF_SLAM')
@@ -85,16 +83,14 @@ class RBPF_SLAM():
         self.logger.info('sampling from Motion Model')
         # Sample from motion model
         if self.Meas_X_t_1['t'] != Meas_X_t['t']:
-            # if not(Meas_X_t['v']>0.01 or Meas_X_t['v'] <-0.01):
-            #     print(f"Vehicle stationary at @ {Meas_X_t['t']}")
-            #     self._importance_weighting(Meas_Z_t)
-            #     return None
+            if not(Meas_X_t['v']>0.01 or Meas_X_t['v'] <-0.01):
+                #print(f"Vehicle stationary at @ {Meas_X_t['t']}")
+                self.Particle_DFrame['v'] = 0
+                self._importance_weighting(Meas_Z_t)
+                return None
             for i in range(len(self.Particle_DFrame)):
                 Est_X_t_1 = self.Particle_DFrame.iloc[i, :].to_dict()
                 # Est_X_t = Odometry_Motion_Model_Sample(self.Meas_X_t_1, Meas_X_t, Est_X_t_1)
-                if not(Meas_X_t['v']>0.01 or Meas_X_t['v'] <-0.01):
-                    print(f"Vehicle stationary at @ {Meas_X_t['t']}")
-                    Est_X_t_1['v'] = 0
                 #Meas_X_t['yaw_dot'] = Meas_X_t['v'] * (np.tan(Meas_X_t['steer'])/self.WHlBase)
                 Meas_X_t['yaw_dot'] = IMU_Z_t['ang_vel']
                 cmdIn = np.array([Meas_X_t['yaw_dot'], Meas_X_t['acc'], self.Meas_X_t_1['acc']]).reshape(3,)
@@ -269,6 +265,7 @@ class RBPF_SLAM():
         #acc
         self.axs[1,2].plot(self.True_acc,'g.',label='GT', markersize=1)  
         plt.pause(0.1)
+        plt.savefig('GT.png')
         plt.show()
 
     def _init_plots(self):
@@ -354,18 +351,6 @@ class RBPF_SLAM():
         plt.plot(yaw_diff,legend = 'Yaw_diff')
         plt.legend(loc = 'best')
         print(f"The mean of diff b/t Odom and corrected: X:{np.mean(pos_diff_x)}, Y:{np.mean(pos_diff_y)},Yaw:{np.mean(yaw_diff)}")
-        
-    def groundtruth(self,Meas_X_t, Meas_Z_t, GPS_Z_t, IMU_Z_t):
-        #odom
-        self.True_x.append(Meas_X_t['x'])
-        self.True_y.append(Meas_X_t['y'])
-        self.True_yaw.append(Meas_X_t['yaw'])
-        
-        #GPS
-        self.predict_x.append(GPS_Z_t['long'] )
-        self.predict_y.append(GPS_Z_t['lat'] )
-        self.predict_yaw.append(IMU_Z_t['yaw'])
-        
         
 if __name__ == '__main__':
     from main.ROSBag_decode import ROS_bag_run

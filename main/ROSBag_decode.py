@@ -140,9 +140,9 @@ def ROS_bag_run():
             #if (Meas_X_t['v']>0.01 or Meas_X_t['v'] <-0.01):
                 
             #Gp.create_graph(Meas_X_t , Meas_Z_t )
-            RBPF.run(Meas_X_t,Meas_Z_t, GPS_Z_t,IMU_Z_t)
+            #RBPF.run(Meas_X_t,Meas_Z_t, GPS_Z_t,IMU_Z_t)
             #logger.info(f"Time { t.to_sec()} processed")
-            #RBPF.set_groundtruth( GPS_Z_t, IMU_Z_t, Meas_X_t)
+            RBPF.set_groundtruth( GPS_Z_t, IMU_Z_t, Meas_X_t)
     
             Gps_avail ,Imu_avail,Lidar_avail ,Odom_avail,Vel_avail,veh_info = 0, 0,0,0,0,1
         
