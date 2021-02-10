@@ -7,7 +7,7 @@ Created on Fri Nov 20 23:11:25 2020
 # To resolve VS code error
 import sys
 from pathlib import Path
-sys.path[0] = str(Path('G:\Masters-FHD\Sem3\SLAM_ResearchThesis'))
+sys.path[0] = str(Path('/home/WorkSpace/SLAM_ResearchThesis'))
 
 import numpy as np
 import pandas as pd
@@ -21,7 +21,7 @@ import math
 import logging
 
 from libs.occupancy_grid import Map
-from libs.motion_models import CTRA_Motion_Model
+from libs.motion_models import CTRA_Motion_Model, VMM
 #from libs.observation_models import Likelihood_Field_Observation_Model
 from libs.scan_matching import ICP, RTCSM
 from utils.tools import Lidar_3D_Preprocessing
@@ -50,7 +50,8 @@ class RBPF_SLAM():
         self.TyrRds = 37.5/1000 #m
         self.steer = []
         self.time = []
-        
+        self._init_plots()
+
     # Initalize the system
     def _initialize(self, GPS_Z_t, IMU_Z_t, Meas_Z_t, Meas_X_t):
         self.logger.info('Initializing PF values')
@@ -83,11 +84,11 @@ class RBPF_SLAM():
         self.logger.info('sampling from Motion Model')
         # Sample from motion model
         if self.Meas_X_t_1['t'] != Meas_X_t['t']:
-            if not(Meas_X_t['v']>0.01 or Meas_X_t['v'] <-0.01):
-                #print(f"Vehicle stationary at @ {Meas_X_t['t']}")
-                self.Particle_DFrame['v'] = 0
-                self._importance_weighting(Meas_Z_t)
-                return None
+            # if not(Meas_X_t['v']>0.01 or Meas_X_t['v'] <-0.01):
+            #     #print(f"Vehicle stationary at @ {Meas_X_t['t']}")
+            #     self.Particle_DFrame['v'] = 0
+            #     self._importance_weighting(Meas_Z_t)
+            #     return None
             for i in range(len(self.Particle_DFrame)):
                 Est_X_t_1 = self.Particle_DFrame.iloc[i, :].to_dict()
                 # Est_X_t = Odometry_Motion_Model_Sample(self.Meas_X_t_1, Meas_X_t, Est_X_t_1)
@@ -116,10 +117,10 @@ class RBPF_SLAM():
                 #     continue
 
                 #print(translation, orientation,error)
-                self.Particle_DFrame.at[i, 'meas_likly'] = RelativeTrans['error']
-                self.Particle_DFrame.at[i, 'traject_x'].append(RelativeTrans['T'][0])
-                self.Particle_DFrame.at[i, 'traject_y'].append(RelativeTrans['T'][1])
-                self.Particle_DFrame.at[i, 'traject_yaw'].append(RelativeTrans['yaw'])  # degrees
+                # self.Particle_DFrame.at[i, 'meas_likly'] = RelativeTrans['error']
+                # self.Particle_DFrame.at[i, 'traject_x'].append(RelativeTrans['T'][0])
+                # self.Particle_DFrame.at[i, 'traject_y'].append(RelativeTrans['T'][1])
+                # self.Particle_DFrame.at[i, 'traject_yaw'].append(RelativeTrans['yaw'])  # degrees
 
             self._importance_weighting(Meas_Z_t)
         
@@ -147,6 +148,9 @@ class RBPF_SLAM():
             self._random_resample()
         else:
             self.logger.info('Resampling Not required')
+
+        #Set estimate to the mean value
+        
 
     def _sys_resample(self):
         self.logger.info("Systematic resampling....")
@@ -198,7 +202,6 @@ class RBPF_SLAM():
                     #self.SM = RTCSM(self.OG, Meas_X_t, Meas_Z_t)
                     self.Meas_X_t_1 = Meas_X_t.copy()
                     self._initialize(GPS_Z_t, IMU_Z_t, Meas_Z_t,Meas_X_t)
-                    self._init_plots()
                     self.iteration += 1
                     self.Meas_Z_t_1 = Meas_Z_t.copy()
                     return None
@@ -265,14 +268,14 @@ class RBPF_SLAM():
         #acc
         self.axs[1,2].plot(self.True_acc,'g.',label='GT', markersize=1)  
         plt.pause(0.1)
-        plt.savefig('GT.png')
+        #plt.savefig('./results/GT.png')
         plt.show()
 
     def _init_plots(self):
         self.axs[0,0].grid('on')
         self.axs[0,0].set_xlabel('Longitude')
         self.axs[0,0].set_ylabel('Latitude')
-        self.axs[0,0].set_title("Ground Truth-XY-GPS")
+        self.axs[0,0].set_title("GPS_XY")
         self.axs[0,0].plot([],[],'g.', markersize=1)
         #self.axs[0,0].legend(loc='best')
         
@@ -281,18 +284,19 @@ class RBPF_SLAM():
         self.axs[0,1].plot([], [], 'k*', label='Odom', markersize=1)
         #correction
         self.axs[0,1].plot([], [], 'r+',label='corrected', markersize=1)
-        self.axs[0,1].set_title("XY-Odom, MM,  SM")
+        self.axs[0,1].set_title("Odom-SM_XY")
         #self.axs[0,1].legend(loc='best')     
         self.axs[0,1].grid('on')
 
         # Orientation Comparison
-        #self.axs[1,0].set_title('Yaw(degrees)')
+        self.axs[1,0].set_title('GT_SteeringAngle')
         self.axs[1,0].grid('on')
-        self.axs[1,0].set_ylabel('Yaw(degrees)')
+        self.axs[1,0].set_ylabel('degrees')
         self.axs[1,0].plot([],[],'b.',label='steer', markersize=1)
         #self.axs[1,0].legend(loc='best')
         
         self.axs[1,1].grid('on')
+        self.axs[1,1].set_title('Odom-GPS-SM_Yaw(degreees)')
         #self.axs[1,1].legend(loc='best')
         self.axs[1,1].plot([],[],'g.',label='GT', markersize=1)        
         #self.axs[1,1].scatter(self.predict_yaw,'r.' ,label='predicted', markersize=1)
@@ -301,12 +305,12 @@ class RBPF_SLAM():
         
         #Vel
         self.axs[0,2].grid('on')
-        self.axs[0,2].set_title("True_v- SM_v")
+        self.axs[0,2].set_title("GT-SM_vel(m/s)")
         self.axs[0,2].plot([],[],'g.',label='GT', markersize=1)  
         self.axs[0,2].plot([],[],'r+',label='corrected', markersize=1)
         #acc
         self.axs[1,2].grid('on')
-        self.axs[1,2].set_title("True_acc")
+        self.axs[1,2].set_title("GT_acc(m/s^2)")
         self.axs[1,2].plot([],[],'g.',label='GT', markersize=1)  
         
         h,l = self.axs[1,1].get_legend_handles_labels()

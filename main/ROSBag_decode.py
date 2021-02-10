@@ -5,51 +5,38 @@ Created on Mon Dec 14 19:20:24 2020
 @author: MangalDeep
 """
 
+import logging
 # To resolve VS code error
 import sys
 from pathlib import Path
-sys.path[0] = str(Path('G:\Masters-FHD\Sem3\SLAM_ResearchThesis'))
 
-import rosbag
-from squaternion import Quaternion
 #import matplotlib.pyplot as plt
 import numpy as np
-import logging
-
+import rosbag
 # from slam_posegraph.graph_constructor import Graph
 # from slam_posegraph.graph_optimizer import ManifoldOptimizer
 # from slam_particlefilter.gmapping import FastSLAM2
 from slam_particlefilter.particle_filter import RBPF_SLAM
+from squaternion import Quaternion
+
+sys.path[0] = str(Path('/home/WorkSpace/SLAM_ResearchThesis'))
 
 def ROS_bag_run():
-    bag = rosbag.Bag('G:/DataSets/BagFiles/CARLA_Autopilot_ROS.bag') #508 - 620
+    if sys.platform =='linux':
+        bag = rosbag.Bag('/media/mangaldeep/HDD3/DataSets/Bagfiles/CARLA_Autopilot_ROS_01_02_2021_Town3.bag') #508 - 620
+        #bag = rosbag.Bag('/media/mangaldeep/HDD3/DataSets/Bagfiles/CARLA_Autopilot_ROS_08_02_2021_mountain.bag')
+    else:
+        bag = rosbag.Bag('G:/DataSets/BagFiles/CARLA_Autopilot_ROS.bag') #508 - 620
     
-    #FS = FastSLAM2()
-    # #Logging
+    #slam_obj = FastSLAM2()
     logger = logging.getLogger('ROS_Decode')
-    # logger.setLevel(logging.DEBUG)
-    
-    # fh = logging.FileHandler('ROS_Decode.log')
-    # fh.setLevel(logging.DEBUG)
-    
-    # # create console handler with a higher log level
-    # ch = logging.StreamHandler()
-    # ch.setLevel(logging.WARNING)
-    
-    # # create formatter and add it to the handlers
-    # formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    # fh.setFormatter(formatter)
-    # ch.setFormatter(formatter)
-    
-    # # add the handlers to the logger
-    # logger.addHandler(fh)
-    #logger.addHandler(ch)
-    RBPF = RBPF_SLAM()
-    #Gp = Graph()
-    #Opt = ManifoldOptimizer()
+
+    slam_obj = RBPF_SLAM()
+    #slam_obj = Graph()
+    #slam_opt_obj = ManifoldOptimizer()
+
     #Topics in bag
     #Topics =  [*bag.get_type_and_topic_info()[1]]
-    
     '''
     '/carla/actor_list', '/carla/ego_vehicle/gnss/gnss1/fix', 
     '/carla/ego_vehicle/imu/imu1', '/carla/ego_vehicle/lidar/lidar1/point_cloud',
@@ -82,7 +69,7 @@ def ROS_bag_run():
             
         if  topic == '/carla/ego_vehicle/vehicle_status': 
             Meas_X_t['v'] = msg.velocity
-            Meas_X_t['acc'] = msg.acceleration.linear.x
+            Meas_X_t['acc'] = np.sqrt(msg.acceleration.linear.x**2 +  msg.acceleration.linear.y**2 +msg.acceleration.linear.z**2)
             Meas_X_t['steer'] = msg.control.steer * max_steering_angle # on a scale [-1,1] of max_steering_angle
             Vel_avail =1
             logger.info(f"Velocity for {t.to_sec()} extracted")
@@ -136,20 +123,22 @@ def ROS_bag_run():
             logger.info(f"IMU for {t.to_sec()} extracted") 
             
         if Imu_avail and Gps_avail and Odom_avail and Lidar_avail and Vel_avail and veh_info:            
-            #FS.run(Meas_X_t_1,Meas_X_t,Meas_Z_t)
             #if (Meas_X_t['v']>0.01 or Meas_X_t['v'] <-0.01):
-                
-            #Gp.create_graph(Meas_X_t , Meas_Z_t )
-            #RBPF.run(Meas_X_t,Meas_Z_t, GPS_Z_t,IMU_Z_t)
+            ##  Graph Based    
+            #slam_obj.create_graph(Meas_X_t , Meas_Z_t )
+
+            ## Particle Based
+            slam_obj.run(Meas_X_t,Meas_Z_t, GPS_Z_t,IMU_Z_t)
+            #slam_obj.set_groundtruth( GPS_Z_t, IMU_Z_t, Meas_X_t)
+
+            #slam_obj.run(Meas_X_t_1,Meas_X_t,Meas_Z_t)
+
             #logger.info(f"Time { t.to_sec()} processed")
-            RBPF.set_groundtruth( GPS_Z_t, IMU_Z_t, Meas_X_t)
-    
             Gps_avail ,Imu_avail,Lidar_avail ,Odom_avail,Vel_avail,veh_info = 0, 0,0,0,0,1
         
         old_t = t.to_sec()
-    RBPF.plot_results()    
-    #Gp.plot()
-    #Opt.optimize(Gp)
+    slam_obj.plot_results()    
+    #slam_opt_obj.optimize(Gp)
     bag.close()
     
 if __name__ == '__main__':
