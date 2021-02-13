@@ -16,3 +16,13 @@ slam_posegraph/__pycache__/graph_optimizer.cpython-38.pyc
 slam_posegraph/__pycache__/graph_constructor.cpython-38.pyc
 slam_posegraph/__pycache__/__init__.cpython-38.pyc
 .vscode/settings.json
+docs/SLAM_Benchamarking.fdb_latexmk
+docs/SLAM_Benchamarking.fls
+docs/SLAM_Benchamarking.log
+docs/SLAM_Benchamarking.out
+docs/SLAM_Benchamarking.pyg
+docs/SLAM_Benchamarking.run.xml
+docs/SLAM_Benchamarking.synctex.gz
+docs/SLAM_Benchamarking.thm
+docs/SLAM_Benchamarking.toc
+docs/chapters/appendices.aux
