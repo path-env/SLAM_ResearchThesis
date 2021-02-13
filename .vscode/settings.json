@@ -1,5 +1,10 @@
 {
-    "python.pythonPath": "D:\\Anaconda\\python.exe",
-    "python.autoComplete.extraPaths": ["G:\\Masters-FHD\\Sem3\\SLAM_ResearchThesis"]
+    "python.pythonPath": "/usr/bin/python3",
+    
+    "python.autoComplete.extraPaths": ["/home/mangaldeep/workspace/SLAM_ResearchThesis",
+    "/home/mangaldeep/carla-ros-bridge/catkin_ws/devel/lib/python3/dist-packages",
+    "/opt/ros/noetic/lib/python3/dist-packages"],
+    "editor.autoClosingQuotes": "always",
+    "python.linting.enabled": true
 
 }

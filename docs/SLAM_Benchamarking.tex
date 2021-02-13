@@ -1,0 +1,90 @@
+\documentclass{lincolncsuthesis}
+
+% Packages you want to use
+\input{preamble/packages}
+
+% Bibliography setup: import bib files
+\input{preamble/bib-setup}
+
+% Your thesis details -- edit the file at the path below
+% so it shows your name, title, etc. 
+\input{preamble/details}
+\title{SLAM - Comparison and Benchmarking}
+\author{Mangal Deep .B.M}
+
+\begin{document}
+
+% First, make the title
+\maketitle
+
+% Input anything that can go before the acknowledgements 
+\input{chapters/blank-pages.tex}
+
+% Then the acknowledgements
+\input{chapters/acknowledgements}
+
+% Then the abstract
+\input{chapters/abstract}
+
+% Print out the table of tables and table of figures and
+% tell the template we're about to start the body of the
+% thesis.
+\thesisTables
+\thesisBodyStart
+
+
+
+
+% start of thesis body
+% ---------------------------
+
+% Include introduction
+\chapter{Introduction}
+\input{chapters/introduction}
+
+% Literature review / Background / Related work
+\chapter{Literature review}
+\input{chapters/literature-review}
+
+% Methodology
+\chapter{Methodology}
+\input{chapters/methodology}
+
+% Implementation
+\chapter{Implementation}
+\input{chapters/implementation}
+
+% Conclusions / Findings
+\chapter{Conclusions}
+\input{chapters/conclusions}
+
+% Reflective analysis
+\chapter{Reflective Analysis}
+\input{chapters/reflective-analysis}
+
+
+
+
+
+% end of thesis body
+% --------------------------
+
+% Print out the references
+\printReferences
+
+% Print out the ludography (optional -- you can comment this out if you're not gonna cite games)
+\printLudography
+
+% If you want to put some text before the list of games,
+% then you can use the following code:
+%\begin{ludography}[Ludography / Optional Title]
+    %Here are some games.
+%\end{ludography}
+
+
+% Appendices: feel free to comment these out if you are 
+% not going to use them.
+\include{chapters/appendices}
+
+
+\end{document}

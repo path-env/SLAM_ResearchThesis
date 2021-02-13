@@ -8,18 +8,18 @@ Created on Mon Dec 14 19:20:24 2020
 import logging
 # To resolve VS code error
 import sys
+import os
 from pathlib import Path
+sys.path.append(os.path.abspath(os.path.join('..', 'SLAM_ResearchThesis')))
 
-#import matplotlib.pyplot as plt
 import numpy as np
 import rosbag
 # from slam_posegraph.graph_constructor import Graph
 # from slam_posegraph.graph_optimizer import ManifoldOptimizer
 # from slam_particlefilter.gmapping import FastSLAM2
 from slam_particlefilter.particle_filter import RBPF_SLAM
+from slam_particlefilter.gmapping import Gmapping
 from squaternion import Quaternion
-
-sys.path[0] = str(Path('/home/WorkSpace/SLAM_ResearchThesis'))
 
 def ROS_bag_run():
     if sys.platform =='linux':
@@ -28,10 +28,10 @@ def ROS_bag_run():
     else:
         bag = rosbag.Bag('G:/DataSets/BagFiles/CARLA_Autopilot_ROS.bag') #508 - 620
     
-    #slam_obj = FastSLAM2()
+    slam_obj = Gmapping()
     logger = logging.getLogger('ROS_Decode')
 
-    slam_obj = RBPF_SLAM()
+    #slam_obj = RBPF_SLAM()
     #slam_obj = Graph()
     #slam_opt_obj = ManifoldOptimizer()
 
