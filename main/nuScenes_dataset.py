@@ -6,8 +6,9 @@ Created on Sun Nov 22 17:29:43 2020
 """
 # To resolve VS code error
 import sys
+import os
 from pathlib import Path
-sys.path[0] = str(Path(sys.path[0]).parent)
+sys.path.append(os.path.abspath(os.path.join('..', 'SLAM_ResearchThesis')))
 
 import numpy as np
 from nuscenes.nuscenes import NuScenes

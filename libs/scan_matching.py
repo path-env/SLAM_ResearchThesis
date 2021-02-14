@@ -381,8 +381,8 @@ class ICP():
         loop_cnt = 0
         actMeas = Meas_Z_t.copy()
         #Transform to the estimated pose
-        Meas_Z_t = rotate(Est_X_t['yaw']) @ Meas_Z_t + np.array([Est_X_t['x'], Est_X_t['y']]).reshape(2,-1)
-        Meas_Z_t_1 = rotate(Est_X_t_1['yaw']) @ Meas_Z_t_1 + np.array([Est_X_t_1['x'], Est_X_t_1['y']]).reshape(2,-1)
+        Meas_Z_t = rotate(Est_X_t[2]) @ Meas_Z_t + Est_X_t[0:2].reshape(2,-1)
+        Meas_Z_t_1 = rotate(Est_X_t_1[2]) @ Meas_Z_t_1 + np.array([Est_X_t_1[0], Est_X_t_1[1]]).reshape(2,-1)
         try:
             while np.abs(prev_error - dist_error) > threshold:
                 prev_error = dist_error
@@ -482,13 +482,13 @@ class RTCSM():
             Yrange = np.arange(-Numcell ,  Numcell, searchStep)[:-1]
             
             x , y = np.meshgrid(Xrange,Yrange)
-            EstDistDrvn = np.sqrt((self.Est_X_t_1['x'] - Est_X_t['x'])**2 + (self.Est_X_t_1['y'] - Est_X_t['y'])**2 )
+            EstDistDrvn = np.sqrt((self.Est_X_t_1[0] - Est_X_t[0])**2 + (self.Est_X_t_1[1] - Est_X_t[1])**2 )
             Pos_search_mask = -(1 / (2 * self.Pos_var**2)) * (np.sqrt((x*searchStep)**2 + (y*searchStep)**2 - EstDistDrvn))**2
             Pos_search_mask[Pos_search_mask > 0.5] = -100
     
             distv = np.sqrt(x**2 + y**2)
             distv[distv == 0] = 0.0001
-            yaw = np.deg2rad(Est_X_t['yaw'])
+            yaw = np.deg2rad(Est_X_t[2])
             Ori_search_mask = np.arccos((y* np.cos(yaw) + x* np.sin(yaw)) / distv)
             Ori_search_mask = -1 / (2 * self.ori_var ** 2) * np.square(Ori_search_mask)        
         
@@ -496,7 +496,7 @@ class RTCSM():
         Corr_cost = np.zeros(len(ori_space),)
         theta = np.zeros(len(ori_space),)
         for i,ori in enumerate(ori_space):
-            Est_X = {'x':Est_X_t['x'], 'y':Est_X_t['y'] ,'yaw':Est_X_t['yaw']+ori}
+            Est_X = {'x':Est_X_t[0], 'y':Est_X_t[1] ,'yaw':Est_X_t[2]+ori}
             
             #Meas = self._rotate(Est_X, Meas_Z_t)
             #Meas_Z = pd.DataFrame(Meas)
@@ -517,7 +517,7 @@ class RTCSM():
         
         confidence = np.sum(np.exp(maxIdx))
         dx, dy, dtheta = Xrange[maxIdx[2]] * searchStep, Yrange[maxIdx[1]] * searchStep, ori_space[maxIdx[0]]
-        Updt_X_t = {"x": Est_X_t['x'] + dx, "y": Est_X_t['y'] + dy, "theta": Est_X_t['yaw'] + dtheta}
+        Updt_X_t = {"x": Est_X_t[0] + dx, "y": Est_X_t[1] + dy, "theta": Est_X_t[2] + dtheta}
         return Updt_X_t , confidence
         
     def _rotate(self, Est_X, Meas):
@@ -538,7 +538,7 @@ class RTCSM():
         
     def _modifyDtype(self, Est_X_t, Meas_Z_t):
         Meas_Z_t = np.array([Meas_Z_t['x'], Meas_Z_t['y']]).reshape(2,-1)
-        Est_X_t = np.array([Est_X_t['x'], Est_X_t['y'], np.deg2rad(Est_X_t['yaw'])]).reshape(3,1)
+        Est_X_t = np.array([Est_X_t['x'], Est_X_t['y'], np.deg2rad(Est_X_t[2])]).reshape(3,1)
         return Est_X_t, Meas_Z_t
 
 class RTCSM2():
