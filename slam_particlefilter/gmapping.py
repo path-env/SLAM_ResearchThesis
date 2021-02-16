@@ -8,59 +8,96 @@ import numpy as np
 import logging
 
 from utils.tools import Lidar_3D_Preprocessing
-from .particle import Particle
+from slam_particlefilter.particle import Particle
+from utils.tools import softmax, normalize
 class Gmapping():
-    def __init__(self):
+    def __init__(self, plotter):
         self.iteration = 0
         self.particleList  = []
+        self.aly = plotter
+
+    def noise_matrix(self, No_sample):
+        noise = np.random.randn(4)
+        for _ in range(No_sample):
+            noise = np.vstack((noise, np.random.randn(4)))
+        return noise
 
     def genrate_particles(self,Meas_X_t, N):
-        self.Particle_cnt =N
+        self.particleCnt =N
         self.particleList = [Particle(Meas_X_t) for _ in range(N)]
-        print('particle generated')
 
     def main(self, Meas_X_t, Meas_Z_t, IMU_Z_t):
         Meas_X_t['yaw_dot'] = IMU_Z_t['ang_vel']
         cmdIn = np.array([Meas_X_t['yaw_dot'], Meas_X_t['acc'], self.Meas_X_t_1['acc']]).reshape(3,)
         dt=Meas_X_t['t'] - self.Meas_X_t_1['t']
-          
-        for Particle in self.particleList:
-            st_prime = Particle.motion_prediction(cmdIn, dt)
 
-            GlobalTrans, RelativeTrans = Particle.scan_match(st_prime, Meas_Z_t, self.Meas_Z_t_1)
+        part_w = []  
+        for P in self.particleList:
+            P.id = len(part_w)
+            st_prime = P.motion_prediction(cmdIn, dt)
+            GT, RT = P.scan_match(st_prime, Meas_Z_t, self.Meas_Z_t_1)
 
-            if RelativeTrans['error'] > 5:
+            if RT['error'] > 5:
                 #compute st, w
-                #Update the exsiting Map
-                pass
+                P.st = st_prime
+                P.w = P.w * 1/RT['error']
             else:
                 # compute the Gaussian proposal
-
+                x_k = st_prime -  np.vstack((GT['T'], GT['yaw'], 0))
                 # sample around the mode
-                Gaus_sampl = st_prime[0:3]+ np.random.rand(3,10)
+                Gaus_sampl = st_prime[0:4]+ self.noise_matrix(10)
                 lykly = []
-                for j in range(Gaus_sampl.shape[1]):
-                    GT,RT = Particle.scan_match(Gaus_sampl[:,j], Meas_Z_t, self.Meas_Z_t_1)
+                P.mu = np.array([0.,0.,0.,0.])
+                P.sigma = np.array([0.,0.,0.,0.])
+                P.norm = 0.
+                for j in range(Gaus_sampl.shape[0]):
+                    GT,_ = P.scan_match(Gaus_sampl[j], Meas_Z_t, self.Meas_Z_t_1)
                    #self.Particle_DFrame['N_weight'] = np.exp(GT['error'])/ np.sum(np.exp(GT['error']))
-                    lykly.append(1/GT['error'])
-
+                    lykly.append(1/max(GT['error'], 0.00000001))
+                #lykly = np.array(lykly) - max(lykly)
+                lykly = normalize(lykly)
+                #P.norm = lykly.sum()
                 for j in range(Gaus_sampl.shape[1]):
-                    Particle.mu += Gaus_sampl[:,j] * lykly[j]
-                    Particle.norm += lykly[j]
-                
-                Particle.mu = Particle.mu / Particle.norm
+                    P.mu += (Gaus_sampl[j] * lykly[j])
+                    P.norm += lykly[j]
 
+                P.mu = P.mu / P.norm
+                #print(P.mu)
                 for j in range(Gaus_sampl.shape[1]):
-                    Particle.sigma += (Gaus_sampl[:,j] - Particle.mu) @ (Gaus_sampl[:,j] - Particle.mu).T
+                    P.sigma += ((Gaus_sampl[j] - P.mu) @ (Gaus_sampl[j] - P.mu).T)*lykly[j]
 
-                Particle.sigma = Particle.sigma/Particle.norm
+                P.sigma = P.sigma/P.norm
 
                 #Sample Pose from Guas Approx
-                Particle.st = Particle.mu + np.random.randn()*Particle.sigma
+                P.st = P.mu #+ np.random.randn()*P.sigma
 
                 #update importance weight
-                Particle.w = Particle.w* Particle.norm
-        
+                P.w = P.w * P.norm
+            part_w.append(P.w)
+                #Update Map for particle
+                #Update sample set
+
+        # find the particle with the max weight
+        max_id = np.argmax(part_w)
+        P = self.particleList[max_id]
+        self.aly._set_trajectory(P.st)
+
+        # Find N_eff
+        part_w = softmax(part_w)
+        part_w = np.array(part_w)
+        n_eff = 1/np.sum(part_w**2)
+
+        if n_eff < self.particleCnt/2:
+            #resample
+            self._random_resample(part_w)
+    
+    def _random_resample(self, part_w):
+        # Sample with replacement w.r.t weights
+        Choice_Indx = np.random.choice(np.arange(self.particleCnt), self.particleCnt, replace=True,
+                                       p=part_w)
+        self.particleList = self.particleList[Choice_Indx]
+        self.P_DFrame['N_weight'] = 1 / self.particleCnt
+
     def run(self,Meas_X_t, Meas_Z_t, GPS_Z_t, IMU_Z_t):
             # try:       
         if 'Range_XY_plane' not in Meas_Z_t.keys():
@@ -68,8 +105,8 @@ class Gmapping():
         if self.iteration == 0:
             self.genrate_particles(Meas_X_t, 10)
             self.Meas_X_t_1 = Meas_X_t.copy()
-            self.iteration += 1
             self.Meas_Z_t_1 = Meas_Z_t.copy()
+            self.iteration += 1
             return None
         # Check Timeliness
         assert (self.Meas_X_t_1['t'] - Meas_X_t['t']) <= 1, "Time difference is very high"
@@ -77,7 +114,8 @@ class Gmapping():
         self.Meas_X_t_1 = Meas_X_t.copy()
         self.Meas_Z_t_1 = Meas_Z_t.copy()
         self.iteration += 1
+        self.aly.plot_results()
 
-if __name__ =='__main__':
-    from main.ROSBag_decode import ROS_bag_run
-    ROS_bag_run()
+# if __name__ =='__main__':
+#     from main.ROSBag_decode import ROS_bag_run
+#     ROS_bag_run()

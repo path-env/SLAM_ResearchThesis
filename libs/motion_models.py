@@ -164,7 +164,7 @@ def CTRA_Motion_Model(Est, cmdIn,dt,y_dot_tolerance=1):
     # Est = prvSt + f_CTRA  + G @ cmdIn 
 
     #Est_X_k = np.array([*Est_X_k.values()])
-    Est_X_k = np.array([Est_X_k['x'], Est_X_k['y'],Est_X_k['yaw'],Est_X_k['v']]).reshape(4,1)
+    Est_X_k = np.array([Est_X_k['x'], Est_X_k['y'],Est_X_k['yaw'],Est_X_k['v']])
     return Est_X_k
 
 ################################### Velocity Motion Model Discretized #############################################

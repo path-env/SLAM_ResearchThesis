@@ -14,9 +14,9 @@ sys.path.append(os.path.abspath(os.path.join('..', 'SLAM_ResearchThesis')))
 
 import numpy as np
 import rosbag
+from libs.slam_analyzer import Analyze as aly
 # from slam_posegraph.graph_constructor import Graph
 # from slam_posegraph.graph_optimizer import ManifoldOptimizer
-# from slam_particlefilter.gmapping import FastSLAM2
 from slam_particlefilter.particle_filter import RBPF_SLAM
 from slam_particlefilter.gmapping import Gmapping
 from squaternion import Quaternion
@@ -27,11 +27,11 @@ def ROS_bag_run():
         #bag = rosbag.Bag('/media/mangaldeep/HDD3/DataSets/Bagfiles/CARLA_Autopilot_ROS_08_02_2021_mountain.bag')
     else:
         bag = rosbag.Bag('G:/DataSets/BagFiles/CARLA_Autopilot_ROS.bag') #508 - 620
-    
-    slam_obj = Gmapping()
+    plotter = aly('GMapping')
+    slam_obj = Gmapping(plotter)
+    #slam_obj = RBPF_SLAM(plotter)
     logger = logging.getLogger('ROS_Decode')
 
-    #slam_obj = RBPF_SLAM()
     #slam_obj = Graph()
     #slam_opt_obj = ManifoldOptimizer()
 
@@ -69,7 +69,7 @@ def ROS_bag_run():
             
         if  topic == '/carla/ego_vehicle/vehicle_status': 
             Meas_X_t['v'] = msg.velocity
-            Meas_X_t['acc'] = np.sqrt(msg.acceleration.linear.x**2 +  msg.acceleration.linear.y**2 +msg.acceleration.linear.z**2)
+            Meas_X_t['acc'] = -1*np.sqrt(msg.acceleration.linear.x**2 +  msg.acceleration.linear.y**2 +msg.acceleration.linear.z**2)
             Meas_X_t['steer'] = msg.control.steer * max_steering_angle # on a scale [-1,1] of max_steering_angle
             Vel_avail =1
             logger.info(f"Velocity for {t.to_sec()} extracted")
@@ -122,7 +122,8 @@ def ROS_bag_run():
             Imu_avail =1
             logger.info(f"IMU for {t.to_sec()} extracted") 
             
-        if Imu_avail and Gps_avail and Odom_avail and Lidar_avail and Vel_avail and veh_info:            
+        if Imu_avail and Gps_avail and Odom_avail and Lidar_avail and Vel_avail and veh_info: 
+            plotter.set_groundtruth(GPS_Z_t, IMU_Z_t, Meas_X_t)      
             #if (Meas_X_t['v']>0.01 or Meas_X_t['v'] <-0.01):
             ##  Graph Based    
             #slam_obj.create_graph(Meas_X_t , Meas_Z_t )

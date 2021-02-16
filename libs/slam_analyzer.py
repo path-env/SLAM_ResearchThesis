@@ -3,18 +3,23 @@ import numpy as np
 # matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
 #import matplotlib.animation as ani
-from matplotlib.animation import FuncAnimation
-from matplotlib import style
+#from matplotlib.animation import FuncAnimation
+#from matplotlib import style
 #style.use('fivethirtyeight')
 plt.rcParams.update({'font.size': 7})
 plt.ion()
 
 class Analyze:
-    def __init__(self):
+    def __init__(self, title):
+        self.fig, self.axs = plt.subplots(2,3, figsize=(15,10))
+        plt.title = title
         self.predict_x,self.predict_y,self.predict_yaw = [], [], []
         self.corrected_x,self.corrected_y,self.corrected_yaw, self.corrected_v = [], [], [], []
         self.True_x,self.True_y, self.True_yaw, self.True_v, self.True_acc = [], [], [],[], []
         self.odom_x, self.odom_y, self.odom_yaw = [],[],[]
+        self.steer = []
+        self.time = []
+        self._init_plots()
     
     # Helpers
     def set_groundtruth(self, GPS_Z_t, IMU_Z_t, Meas_X_t):
@@ -112,6 +117,13 @@ class Analyze:
         self.fig.legend(h,l, loc='upper left')
         plt.tight_layout()
     
+    def _particle_trajectory(self):
+        plt.figure()
+        for i in range(self.Particle_Cnt):
+            plt.plot(self.Particle_DFrame.at[i,'traject_x'],self.Particle_DFrame.at[i,'traject_y'],label = i)
+        plt.legend(loc = 'best')
+        plt.show()
+
     def error_metrics(self):
         # corrected vs predicted
         # mean difference of location

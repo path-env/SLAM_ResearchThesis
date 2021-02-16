@@ -366,6 +366,8 @@ class ICP():
         error = np.sum( np.square(t_mean - R@t_1mean))
         
         orientation = np.rad2deg(np.arctan2(R[1,0],R[0,0]))
+        if np.any(np.isnan(T)):
+            print('nan')
         return R,T,orientation,error
     
     def match(self,Meas_Z_t,Meas_Z_t_1,Est_X_t,Est_X_t_1,Iter = 10,threshold = 0.0001):
@@ -388,7 +390,8 @@ class ICP():
                 prev_error = dist_error
                 nbrs = NearestNeighbors(n_neighbors=1, algorithm='auto').fit(Meas_Z_t.T)
                 dist, Colidx = nbrs.kneighbors(Meas_Z_t_1.T)
-    
+                if np.mean(dist)>5:
+                    print(np.mean(dist))
                 Colidx = Colidx[dist< min(np.median(dist), 5)] #Use the closest point
                 Colidx = np.unique(Colidx)
                 R,T,orientation,alignmenterr = self._compute_T_R(Meas_Z_t_1[:,Colidx ],Meas_Z_t[:,Colidx ])
@@ -409,8 +412,7 @@ class ICP():
             GlobalTrans = {'r':R,'T':T , 'yaw':orientation,'error':alignmenterr}
             #print(f"Global Trans: {GlobalTrans}")
             # Calculate T and R between actual measurement  and the transformed scan
-            if np.any(np.isnan(T)):
-                print('nan')
+
             return GlobalTrans, RelativeTrans
         except Exception as e:
             print(e)

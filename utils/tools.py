@@ -46,3 +46,9 @@ def Lidar_3D_Preprocessing(Meas_Z_t):
     Meas = Meas.drop_duplicates(['Azimuth'])
     Meas_Z_t = Meas.reset_index(drop=True)
     return Meas_Z_t
+
+def normalize(arr):
+    return np.array([(x - np.min(arr))/ (np.max(arr) - np.min(arr)) for x in arr])
+
+def softmax(arr):
+    return np.exp(arr)/ np.sum(np.exp(arr))

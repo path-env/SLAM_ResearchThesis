@@ -6,46 +6,30 @@ Created on Fri Nov 20 23:11:25 2020
 """
 import numpy as np
 import pandas as pd
-# import matplotlib
-# matplotlib.use('Qt5Agg')
-import matplotlib.pyplot as plt
-#import matplotlib.animation as ani
-from matplotlib.animation import FuncAnimation
-from matplotlib import style
+
 import math
 import logging
 
 from libs.occupancy_grid import Map
 from libs.motion_models import CTRA_Motion_Model, VMM
-#from libs.observation_models import Likelihood_Field_Observation_Model
 from libs.scan_matching import ICP, RTCSM
 from utils.tools import Lidar_3D_Preprocessing
-
-plt.rcParams.update({'font.size': 7})
-#style.use('fivethirtyeight')
-plt.ion()
+from libs.slam_analyzer import Analyze as aly
 
 class RBPF_SLAM():
-    def __init__(self):
+    def __init__(self, plotter):
         # Parameters
         self.Particle_Cnt = 10
         self.iteration = 0
-        self.fig, self.axs = plt.subplots(2,3, figsize=(15,10))
         self.MapSize = 100  # Local Map siz
         self.logger = logging.getLogger('ROS_Decode.RBPF_SLAM')
         self.logger.info('creating an instance of RBPF_SLAM')
         self.prev_scan_update = {'x': 0, 'y': 0, 'yaw': 0}
         self.best_particle = 0
-        self.predict_x,self.predict_y,self.predict_yaw = [], [], []
-        self.corrected_x,self.corrected_y,self.corrected_yaw, self.corrected_v = [], [], [], []
-        self.True_x,self.True_y, self.True_yaw, self.True_v, self.True_acc = [], [], [],[], []
-        self.odom_x, self.odom_y, self.odom_yaw = [],[],[]
-        self.WhlWidth = 0.8568637084960926*2 #type: "vehicle.mini.cooperst" Wheels.position.x *2
-        self.WHlBase = (1.143818969726567 + 1.367382202148434)/2 #type: "vehicle.mini.cooperst" Wheels.position.y *2
+        self.WhlWidth = 0.8568637084960926*2 #type"vehicle.mini.cooperst" Wheels.position.x *2
+        self.WHlBase = (1.143818969726567 + 1.367382202148434)/2 #type"vehicle.mini.cooperst" Wheels.position.y *2
         self.TyrRds = 37.5/1000 #m
-        self.steer = []
-        self.time = []
-        self._init_plots()
+        self.aly = plotter
 
     # Initalize the system
     def _initialize(self, GPS_Z_t, IMU_Z_t, Meas_Z_t, Meas_X_t):
@@ -107,9 +91,6 @@ class RBPF_SLAM():
 
                 #print(translation, orientation,error)
                 self.Particle_DFrame.at[i, 'meas_likly'] = RelativeTrans['error']
-                # self.Particle_DFrame.at[i, 'traject_x'].append(RelativeTrans['T'][0])
-                # self.Particle_DFrame.at[i, 'traject_y'].append(RelativeTrans['T'][1])
-                # self.Particle_DFrame.at[i, 'traject_yaw'].append(RelativeTrans['yaw'])  # degrees
 
             self._importance_weighting(Meas_Z_t)
         
@@ -145,7 +126,7 @@ class RBPF_SLAM():
         #self.best_particle = self.Particle_DFrame.meas_likly.idxmin()
         Est_X_t = mean #self.Particle_DFrame.loc[self.best_particle].to_dict()       
         self.prev_scan_update = Est_X_t.copy()
-        self._set_trajectory(Est_X_t)
+        self.aly._set_trajectory(Est_X_t)
         #self.OG.Update(Est_X_t, Meas_Z_t, True)
 
     def _sys_resample(self):
@@ -187,7 +168,6 @@ class RBPF_SLAM():
 
     def run(self, Meas_X_t, Meas_Z_t, GPS_Z_t, IMU_Z_t):
             # try:       
-        self.set_groundtruth(GPS_Z_t, IMU_Z_t, Meas_X_t)
         self.logger.info('RBPF_SLAM_Iteration.......%d for time = %f(s)', self.iteration, Meas_X_t['t'])
         
         if 'Range_XY_plane' not in Meas_Z_t.keys():
@@ -212,25 +192,17 @@ class RBPF_SLAM():
             #     print(e)
             #     raise(RuntimeWarning)
             #finally:
-                #ani = FuncAnimation(self.fig, self.plot_results, interval = 20000)
-        self.plot_results() 
-                #plt.ioff()
-                #self.fig.canvas.draw()   
+                
+        self.aly.plot_results() 
 
     def _gps_2_XY(self):
         # In Meters
-        lon2, lat2 = self.True_x[0], self.True_y[0]
-        lon1, lat1 = self.True_x[-2], self.True_y[-2]
+        lon2, lat2 = self.aly.True__x[0], self.aly.True__y[0]
+        lon1, lat1 = self.aly.True__x[-2], self.aly.True__y[-2]
         dx = (lon1 - lon2) * 40000 * math.cos((lat1 + lat2) * math.pi / 360) / 360
         dy = (lat1 - lat2) * 40000 / 360
         return dx * 1000, dy * 1000
     
-    def _particle_trajectory(self):
-        plt.figure()
-        for i in range(self.Particle_Cnt):
-            plt.plot(self.Particle_DFrame.at[i,'traject_x'],self.Particle_DFrame.at[i,'traject_y'],label = i)
-        plt.legend(loc = 'best')
-        plt.show()
          
 if __name__ == '__main__':
     from main.ROSBag_decode import ROS_bag_run
