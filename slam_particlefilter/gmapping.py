@@ -4,6 +4,7 @@ Created on Fri Nov 27 17:02:41 2020
 
 @author: MangalDeep
 """
+from random import sample
 import numpy as np
 import logging
 
@@ -16,10 +17,11 @@ class Gmapping():
         self.particleList  = []
         self.aly = plotter
 
-    def noise_matrix(self, No_sample):
+    def noise_matrix(self, No_sample, var):
         noise = np.random.randn(4)
-        for _ in range(No_sample):
+        for _ in range(No_sample-1):
             noise = np.vstack((noise, np.random.randn(4)))
+        noise = noise * var
         return noise
 
     def genrate_particles(self,Meas_X_t, N):
@@ -45,31 +47,40 @@ class Gmapping():
                 # compute the Gaussian proposal
                 x_k = st_prime -  np.vstack((GT['T'], GT['yaw'], 0))
                 # sample around the mode
-                Gaus_sampl = st_prime[0:4]+ self.noise_matrix(10)
+                sample_cnt = 10
+                Gaus_sampl = st_prime[0:4]+ self.noise_matrix(sample_cnt, P.sigma)
+                # reinitialize
                 lykly = []
                 P.mu = np.array([0.,0.,0.,0.])
                 P.sigma = np.array([0.,0.,0.,0.])
                 P.norm = 0.
+
                 for j in range(Gaus_sampl.shape[0]):
                     GT,_ = P.scan_match(Gaus_sampl[j], Meas_Z_t, self.Meas_Z_t_1)
                    #self.Particle_DFrame['N_weight'] = np.exp(GT['error'])/ np.sum(np.exp(GT['error']))
-                    lykly.append(1/max(GT['error'], 0.00000001))
+                    lykly.append((1-GT['error']))
+
                 #lykly = np.array(lykly) - max(lykly)
-                lykly = normalize(lykly)
-                #P.norm = lykly.sum()
-                for j in range(Gaus_sampl.shape[1]):
-                    P.mu += (Gaus_sampl[j] * lykly[j])
-                    P.norm += lykly[j]
+                lykly = softmax(lykly)
 
-                P.mu = P.mu / P.norm
-                #print(P.mu)
-                for j in range(Gaus_sampl.shape[1]):
-                    P.sigma += ((Gaus_sampl[j] - P.mu) @ (Gaus_sampl[j] - P.mu).T)*lykly[j]
+                # Compute Mean
+                P.norm = lykly.sum()
+                temp = Gaus_sampl.T * lykly
+                P.mu = temp.T
+                P.mu = np.sum(P.mu, axis =0) / P.norm
 
-                P.sigma = P.sigma/P.norm
-
+                # Compute Variance
+                # for j in range(Gaus_sampl.shape[1]):
+                #     diff = (Gaus_sampl[j] - P.mu)
+                #     P.sigma += ( diff @ (diff.reshape(4,1).T))*lykly[j]
+                #P.sigma = P.sigma/P.norm
+                diff = Gaus_sampl - P.mu
+                temp = diff @ diff.T
+                P.sigma = temp * lykly
+                P.sigma = P.sigma /P.norm
+                P.sigma = np.cov(Gaus_sampl.T, aweights=lykly)
                 #Sample Pose from Guas Approx
-                P.st = P.mu #+ np.random.randn()*P.sigma
+                P.st = P.mu + np.random.randn()*P.sigma
 
                 #update importance weight
                 P.w = P.w * P.norm
