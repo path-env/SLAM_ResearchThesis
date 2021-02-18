@@ -27,3 +27,5 @@ docs/SLAM_Benchamarking.thm
 docs/SLAM_Benchamarking.toc
 docs/chapters/appendices.aux
 slam_particlefilter/__pycache__/particle.cpython-38.pyc
+libs/__pycache__/slam_analyzer.cpython-38.pyc
+

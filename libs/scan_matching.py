@@ -390,8 +390,8 @@ class ICP():
                 prev_error = dist_error
                 nbrs = NearestNeighbors(n_neighbors=1, algorithm='auto').fit(Meas_Z_t.T)
                 dist, Colidx = nbrs.kneighbors(Meas_Z_t_1.T)
-                if np.mean(dist)>5:
-                    print(np.mean(dist))
+                # if np.mean(dist)>5:
+                #     print(np.mean(dist))
                 Colidx = Colidx[dist< min(np.median(dist), 5)] #Use the closest point
                 Colidx = np.unique(Colidx)
                 R,T,orientation,alignmenterr = self._compute_T_R(Meas_Z_t_1[:,Colidx ],Meas_Z_t[:,Colidx ])

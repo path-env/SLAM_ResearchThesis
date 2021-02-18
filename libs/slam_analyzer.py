@@ -12,7 +12,7 @@ plt.ion()
 class Analyze:
     def __init__(self, title):
         self.fig, self.axs = plt.subplots(2,3, figsize=(15,10))
-        plt.title = title
+        self.fig.suptitle(title, fontsize=16)
         self.predict_x,self.predict_y,self.predict_yaw = [], [], []
         self.corrected_x,self.corrected_y,self.corrected_yaw, self.corrected_v = [], [], [], []
         self.True_x,self.True_y, self.True_yaw, self.True_v, self.True_acc = [], [], [],[], []
@@ -21,7 +21,6 @@ class Analyze:
         self.time = []
         self._init_plots()
     
-    # Helpers
     def set_groundtruth(self, GPS_Z_t, IMU_Z_t, Meas_X_t):
         self.True_x.append(GPS_Z_t['long'])
         self.True_y.append(GPS_Z_t['lat'])

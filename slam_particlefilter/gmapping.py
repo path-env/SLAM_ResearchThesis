@@ -4,6 +4,7 @@ Created on Fri Nov 27 17:02:41 2020
 
 @author: MangalDeep
 """
+from libs.scan_matching import ICP
 from random import sample
 import numpy as np
 import logging
@@ -21,7 +22,7 @@ class Gmapping():
         noise = np.random.randn(4)
         for _ in range(No_sample-1):
             noise = np.vstack((noise, np.random.randn(4)))
-        noise = noise * var
+        noise = noise @ var
         return noise
 
     def genrate_particles(self,Meas_X_t, N):
@@ -45,7 +46,13 @@ class Gmapping():
                 P.w = P.w * 1/RT['error']
             else:
                 # compute the Gaussian proposal
-                x_k = st_prime -  np.vstack((GT['T'], GT['yaw'], 0))
+                SM_st = GT['T'].flatten().tolist()
+                SM_st.append(GT['yaw'].tolist())
+                SM_st.append(st_prime[3])
+                diff = SM_st - st_prime 
+                #st_prime = np.array(SM_st)
+                #print(diff)
+                cov = (diff.reshape(4,1)) @ diff.reshape(1,4)
                 # sample around the mode
                 sample_cnt = 10
                 Gaus_sampl = st_prime[0:4]+ self.noise_matrix(sample_cnt, P.sigma)
@@ -57,8 +64,7 @@ class Gmapping():
 
                 for j in range(Gaus_sampl.shape[0]):
                     GT,_ = P.scan_match(Gaus_sampl[j], Meas_Z_t, self.Meas_Z_t_1)
-                   #self.Particle_DFrame['N_weight'] = np.exp(GT['error'])/ np.sum(np.exp(GT['error']))
-                    lykly.append((1-GT['error']))
+                    lykly.append((GT['error']))
 
                 #lykly = np.array(lykly) - max(lykly)
                 lykly = softmax(lykly)
@@ -70,44 +76,50 @@ class Gmapping():
                 P.mu = np.sum(P.mu, axis =0) / P.norm
 
                 # Compute Variance
-                # for j in range(Gaus_sampl.shape[1]):
-                #     diff = (Gaus_sampl[j] - P.mu)
-                #     P.sigma += ( diff @ (diff.reshape(4,1).T))*lykly[j]
-                #P.sigma = P.sigma/P.norm
-                diff = Gaus_sampl - P.mu
-                temp = diff @ diff.T
-                P.sigma = temp * lykly
-                P.sigma = P.sigma /P.norm
                 P.sigma = np.cov(Gaus_sampl.T, aweights=lykly)
                 #Sample Pose from Guas Approx
-                P.st = P.mu + np.random.randn()*P.sigma
-
+                temp = P.mu + np.random.randn()*P.sigma
+                P.st = temp.mean(axis=0)
                 #update importance weight
                 P.w = P.w * P.norm
             part_w.append(P.w)
-                #Update Map for particle
-                #Update sample set
 
         # find the particle with the max weight
-        max_id = np.argmax(part_w)
-        P = self.particleList[max_id]
-        self.aly._set_trajectory(P.st)
-
-        # Find N_eff
+        # max_id = np.argmax(part_w)
+        # P = self.particleList[max_id]
+        # self.aly._set_trajectory(P.st)
         part_w = softmax(part_w)
-        part_w = np.array(part_w)
-        n_eff = 1/np.sum(part_w**2)
+        for i,P in enumerate(self.particleList):
+            P.w = part_w[i]
 
+        self._est_state()
+        # Find N_eff
+        n_eff = 1/np.sum(part_w**2)
         if n_eff < self.particleCnt/2:
             #resample
             self._random_resample(part_w)
+
+    def _est_state(self):
+        mu = np.array([0.,0.,0.,0.])
+        var = np.zeros((4,4), dtype=np.float32)
+        norm = 0.
+        # weighed sum of each particle
+        for P in self.particleList:
+            mu += P.st*P.w
+            var += P.sigma*P.w
+            norm += P.w
     
+        self.prev_scan_update = mu
+        self.aly._set_trajectory(mu)
+        #self.OG.Update(Est_X_t, Meas_Z_t, True)
+
     def _random_resample(self, part_w):
         # Sample with replacement w.r.t weights
         Choice_Indx = np.random.choice(np.arange(self.particleCnt), self.particleCnt, replace=True,
                                        p=part_w)
         self.particleList = self.particleList[Choice_Indx]
-        self.P_DFrame['N_weight'] = 1 / self.particleCnt
+        for P in self.particleList:
+            P.w = 1/self.particleCnt
 
     def run(self,Meas_X_t, Meas_Z_t, GPS_Z_t, IMU_Z_t):
             # try:       

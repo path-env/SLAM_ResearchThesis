@@ -22,7 +22,7 @@ class Particle:
         self.w = 0.1
         #Gaus Approx
         self.mu = np.array([0.,0.,0.,0.])
-        self.sigma = np.array([0.,0.,0.,0.])
+        self.sigma = np.diag((0.1,0.1,0.1,0.1))
         self.norm = 0.
         #trajectory
         self.x_traject = []

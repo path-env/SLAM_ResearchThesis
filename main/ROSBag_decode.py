@@ -27,9 +27,9 @@ def ROS_bag_run():
         #bag = rosbag.Bag('/media/mangaldeep/HDD3/DataSets/Bagfiles/CARLA_Autopilot_ROS_08_02_2021_mountain.bag')
     else:
         bag = rosbag.Bag('G:/DataSets/BagFiles/CARLA_Autopilot_ROS.bag') #508 - 620
-    plotter = aly('GMapping')
-    slam_obj = Gmapping(plotter)
-    #slam_obj = RBPF_SLAM(plotter)
+    plotter = aly('RBPF')
+    #slam_obj = Gmapping(plotter)
+    slam_obj = RBPF_SLAM(plotter)
     logger = logging.getLogger('ROS_Decode')
 
     #slam_obj = Graph()
