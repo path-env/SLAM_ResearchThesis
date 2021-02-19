@@ -9,54 +9,58 @@
 % Your thesis details -- edit the file at the path below
 % so it shows your name, title, etc. 
 \input{preamble/details}
-\title{SLAM - Comparison and Benchmarking}
+\title{SLAM - Implementation and Benchmarking}
 \author{Mangal Deep .B.M}
 
 \begin{document}
 
 % First, make the title
-\maketitle
+\maketitle{}
 
 % Input anything that can go before the acknowledgements 
-\input{chapters/blank-pages.tex}
+\input{chapters/0_blank-pages.tex}
 
-% Then the acknowledgements
-\input{chapters/acknowledgements}
 
 % Then the abstract
-\input{chapters/abstract}
+\input{chapters/1_abstract}
+
+% Then the acknowledgements
+\input{chapters/2_acknowledgements}
 
 % Print out the table of tables and table of figures and
 % tell the template we're about to start the body of the
 % thesis.
 \thesisTables
+% Indexes, Glossaries
+
 \thesisBodyStart
-
-
-
-
 % start of thesis body
 % ---------------------------
 
 % Include introduction
 \chapter{Introduction}
-\input{chapters/introduction}
+\input{chapters/5_introduction}
 
 % Literature review / Background / Related work
 \chapter{Literature review}
-\input{chapters/literature-review}
+\input{chapters/6_literature-review}
 
-% Methodology
-\chapter{Methodology}
-\input{chapters/methodology}
+% SLAM Formulation + State Prediction and correction
+\chapter{Formulation}
+\input{chapters/7_formulation}
 
-% Implementation
-\chapter{Implementation}
-\input{chapters/implementation}
+\chapter{Particle Filter}
+\input{chapters/8_particlefilterapproach}
+
+\chapter{Factor  Graphs}
+\input{chapters/9_graphapproach}
+
+\chapter{Comaprison and Benchmarking}
+\input{chapters/10_benchmarking}
 
 % Conclusions / Findings
 \chapter{Conclusions}
-\input{chapters/conclusions}
+\input{chapters/11_conclusions}
 
 % Reflective analysis
 \chapter{Reflective Analysis}
@@ -71,16 +75,6 @@
 
 % Print out the references
 \printReferences
-
-% Print out the ludography (optional -- you can comment this out if you're not gonna cite games)
-\printLudography
-
-% If you want to put some text before the list of games,
-% then you can use the following code:
-%\begin{ludography}[Ludography / Optional Title]
-    %Here are some games.
-%\end{ludography}
-
 
 % Appendices: feel free to comment these out if you are 
 % not going to use them.

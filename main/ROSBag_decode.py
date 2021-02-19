@@ -27,9 +27,10 @@ def ROS_bag_run():
         #bag = rosbag.Bag('/media/mangaldeep/HDD3/DataSets/Bagfiles/CARLA_Autopilot_ROS_08_02_2021_mountain.bag')
     else:
         bag = rosbag.Bag('G:/DataSets/BagFiles/CARLA_Autopilot_ROS.bag') #508 - 620
-    plotter = aly('RBPF')
-    #slam_obj = Gmapping(plotter)
-    slam_obj = RBPF_SLAM(plotter)
+
+    plotter = aly('GMapping')
+    slam_obj = Gmapping(plotter)
+    #slam_obj = RBPF_SLAM(plotter)
     logger = logging.getLogger('ROS_Decode')
 
     #slam_obj = Graph()
@@ -49,12 +50,8 @@ def ROS_bag_run():
     ## Initialization
     Meas_X_t = {}
     Meas_Z_t = {}
-    Meas_X_t_1 = {}
     GPS_Z_t = {}
     IMU_Z_t = {}
-    Lat = []
-    Long = []
-    g= []
     Gps_avail ,Imu_avail,Lidar_avail ,Odom_avail,old_t = 0,0 ,0,0,0
     max_steering_angle = 1.221730351448059
     for topic, msg, t in bag.read_messages(topics=['/carla/ego_vehicle/gnss/gnss1/fix',
