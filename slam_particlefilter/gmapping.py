@@ -4,19 +4,21 @@ Created on Fri Nov 27 17:02:41 2020
 
 @author: MangalDeep
 """
-from libs.scan_matching import ICP
-from random import sample
 import numpy as np
 import logging
 
 from utils.tools import Lidar_3D_Preprocessing
 from slam_particlefilter.particle import Particle
 from utils.tools import softmax, normalize
+from libs.occupancy_grid import Map
+from libs.scan_matching import ICP, RTCSM
 class Gmapping():
-    def __init__(self, plotter):
+    def __init__(self, plotter, N):
         self.iteration = 0
         self.particleList  = []
         self.aly = plotter
+        self.OG = Map()
+        self.particleCnt =N
 
     def noise_matrix(self, No_sample, var):
         noise = np.random.randn(4)
@@ -25,25 +27,26 @@ class Gmapping():
         noise = noise @ var
         return noise
 
-    def genrate_particles(self,Meas_X_t, N):
-        self.particleCnt =N
-        self.particleList = [Particle(Meas_X_t) for _ in range(N)]
+    def genrate_particles(self,Meas_X_t, Meas_Z_t):
+        #self.SM1 = ICP() #GO_ICP(Meas_Z_t, Meas_X_t)
+        self.SM2 = RTCSM(self.OG,Meas_X_t, Meas_Z_t)
+        self.particleList = [Particle(Meas_X_t, Meas_Z_t, self.OG, self.SM2) for _ in range(self.particleCnt)]
 
     def main(self, Meas_X_t, Meas_Z_t, IMU_Z_t):
-        Meas_X_t['yaw_dot'] = IMU_Z_t['ang_vel']
-        cmdIn = np.array([Meas_X_t['yaw_dot'], Meas_X_t['acc'], self.Meas_X_t_1['acc']]).reshape(3,)
-        dt=Meas_X_t['t'] - self.Meas_X_t_1['t']
+        #Meas_X_t['yaw_dot'] = IMU_Z_t['ang_vel']
+        cmdIn = np.array([IMU_Z_t['ang_vel'], Meas_X_t[-3], self.Meas_X_t_1[-3]]).reshape(3,)
+        dt=Meas_X_t[-1] - self.Meas_X_t_1[-1]
 
         part_w = []  
         for P in self.particleList:
             P.id = len(part_w)
             st_prime = P.motion_prediction(cmdIn, dt)
-            GT, RT = P.scan_match(st_prime, Meas_Z_t, self.Meas_Z_t_1)
+            GT = P.scan_match(st_prime, Meas_Z_t, self.Meas_Z_t_1)
 
-            if RT['error'] > 5:
+            if GT['error'] > 5:
                 #compute st, w
                 P.st = st_prime
-                P.w = P.w * 1/RT['error']
+                P.w = P.w * 1/GT['error']
             else:
                 # compute the Gaussian proposal
                 SM_st = GT['T'].flatten().tolist()
@@ -55,7 +58,7 @@ class Gmapping():
                 cov = (diff.reshape(4,1)) @ diff.reshape(1,4)
                 # sample around the mode
                 sample_cnt = 10
-                Gaus_sampl = st_prime[0:4]+ self.noise_matrix(sample_cnt, P.sigma)
+                Gaus_sampl = st_prime[0:4] #+ self.noise_matrix(sample_cnt, P.sigma)
                 # reinitialize
                 lykly = []
                 P.mu = np.array([0.,0.,0.,0.])
@@ -92,14 +95,14 @@ class Gmapping():
         for i,P in enumerate(self.particleList):
             P.w = part_w[i]
 
-        self._est_state()
+        self._est_state(Meas_Z_t)
         # Find N_eff
         n_eff = 1/np.sum(part_w**2)
         if n_eff < self.particleCnt/2:
             #resample
             self._random_resample(part_w)
 
-    def _est_state(self):
+    def _est_state(self, Meas_Z_t):
         mu = np.array([0.,0.,0.,0.])
         var = np.zeros((4,4), dtype=np.float32)
         norm = 0.
@@ -111,7 +114,7 @@ class Gmapping():
     
         self.prev_scan_update = mu
         self.aly._set_trajectory(mu)
-        #self.OG.Update(Est_X_t, Meas_Z_t, True)
+        #self.OG.Update(mu, Meas_Z_t, True)
 
     def _random_resample(self, part_w):
         # Sample with replacement w.r.t weights
@@ -125,19 +128,20 @@ class Gmapping():
             # try:       
         if 'Range_XY_plane' not in Meas_Z_t.keys():
             Meas_Z_t = Lidar_3D_Preprocessing(Meas_Z_t)
+        Meas = [Meas_X_t['x'], Meas_X_t['y'], Meas_X_t['yaw'], Meas_X_t['v'], Meas_X_t['acc'], Meas_X_t['steer'], Meas_X_t['t']]
         if self.iteration == 0:
-            self.genrate_particles(Meas_X_t, 10)
-            self.Meas_X_t_1 = Meas_X_t.copy()
+            self.genrate_particles(Meas,Meas_Z_t)
+            self.Meas_X_t_1 = Meas.copy()
             self.Meas_Z_t_1 = Meas_Z_t.copy()
             self.iteration += 1
             return None
         # Check Timeliness
-        assert (self.Meas_X_t_1['t'] - Meas_X_t['t']) <= 1, "Time difference is very high"
-        self.main(Meas_X_t, Meas_Z_t, IMU_Z_t)
-        self.Meas_X_t_1 = Meas_X_t.copy()
+        assert (self.Meas_X_t_1[-1] - Meas[-1]) <= 1, "Time difference is very high"
+        self.main(Meas, Meas_Z_t, IMU_Z_t)
+        self.Meas_X_t_1 = Meas.copy()
         self.Meas_Z_t_1 = Meas_Z_t.copy()
         self.iteration += 1
-        self.aly.plot_results()
+        #self.aly.plot_results()
 
 # if __name__ =='__main__':
 #     from main.ROSBag_decode import ROS_bag_run

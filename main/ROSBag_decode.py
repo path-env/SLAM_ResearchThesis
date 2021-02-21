@@ -21,6 +21,8 @@ from slam_particlefilter.particle_filter import RBPF_SLAM
 from slam_particlefilter.gmapping import Gmapping
 from squaternion import Quaternion
 
+import csv
+
 def ROS_bag_run():
     if sys.platform =='linux':
         bag = rosbag.Bag('/media/mangaldeep/HDD3/DataSets/Bagfiles/CARLA_Autopilot_ROS_01_02_2021_Town3.bag') #508 - 620
@@ -29,8 +31,8 @@ def ROS_bag_run():
         bag = rosbag.Bag('G:/DataSets/BagFiles/CARLA_Autopilot_ROS.bag') #508 - 620
 
     plotter = aly('GMapping')
-    slam_obj = Gmapping(plotter)
-    #slam_obj = RBPF_SLAM(plotter)
+    slam_obj = Gmapping(plotter, 10)
+    #slam_obj = RBPF_SLAM(plotter, 10)
     logger = logging.getLogger('ROS_Decode')
 
     #slam_obj = Graph()
@@ -54,12 +56,15 @@ def ROS_bag_run():
     IMU_Z_t = {}
     Gps_avail ,Imu_avail,Lidar_avail ,Odom_avail,old_t = 0,0 ,0,0,0
     max_steering_angle = 1.221730351448059
+    # with open('results/GT_CARLA_AP_Town3.csv','w')as xlFile:
+    #     writer = csv.writer(xlFile)
+    #     writer.writerow(['Time', 'x','y','yaw','v','acc', 'steer', 'Lat','Long', 'Alt', 'Roll', 'Pitch', 'Yaw', 'AngVel'])
     for topic, msg, t in bag.read_messages(topics=['/carla/ego_vehicle/gnss/gnss1/fix',
-                                                   '/carla/ego_vehicle/odometry',
-                                                   '/carla/ego_vehicle/lidar/lidar1/point_cloud',
-                                                   '/carla/ego_vehicle/vehicle_info',
-                                                   '/carla/ego_vehicle/vehicle_status',
-                                                   '/carla/ego_vehicle/imu/imu1']):
+                                                '/carla/ego_vehicle/odometry',
+                                                '/carla/ego_vehicle/lidar/lidar1/point_cloud',
+                                                '/carla/ego_vehicle/vehicle_info',
+                                                '/carla/ego_vehicle/vehicle_status',
+                                                '/carla/ego_vehicle/imu/imu1']):
         
         if old_t-t.to_sec() != 0:
             Gps_avail ,Imu_avail,Lidar_avail ,Odom_avail,Vel_avail,veh_info = 0, 0,0,0,0,1
@@ -89,8 +94,8 @@ def ROS_bag_run():
         if topic == '/carla/ego_vehicle/lidar/lidar1/point_cloud':
             '''
             From sensor.json file
-              "spawn_point": {"x": 0.0, "y": 0.0, "z": 2.4, "roll": 0.0, "pitch": 0.0, "yaw": 0.0},
-              "range": 50,
+            "spawn_point": {"x": 0.0, "y": 0.0, "z": 2.4, "roll": 0.0, "pitch": 0.0, "yaw": 0.0},
+            "range": 50,
             '''
             temp = np.frombuffer(msg.data,np.float32).reshape(-1,4)
             Meas_Z_t = {'x': temp[:,0],'y': -1*temp[:,1],'z': temp[:,2] } ## In sensor Frame
@@ -120,14 +125,15 @@ def ROS_bag_run():
             logger.info(f"IMU for {t.to_sec()} extracted") 
             
         if Imu_avail and Gps_avail and Odom_avail and Lidar_avail and Vel_avail and veh_info: 
-            plotter.set_groundtruth(GPS_Z_t, IMU_Z_t, Meas_X_t)      
+            plotter.set_groundtruth(GPS_Z_t, IMU_Z_t, Meas_X_t)
+            #writer.writerow([Meas_X_t['t'], Meas_X_t['x'],Meas_X_t['y'], Meas_X_t['yaw'], Meas_X_t['v'], Meas_X_t['acc'], Meas_X_t['steer'], GPS_Z_t['lat'],
+                #GPS_Z_t['long'], GPS_Z_t['alt'], IMU_Z_t['roll'], IMU_Z_t['pitch'],  IMU_Z_t['yaw'] ,IMU_Z_t['ang_vel'] ])
             #if (Meas_X_t['v']>0.01 or Meas_X_t['v'] <-0.01):
             ##  Graph Based    
             #slam_obj.create_graph(Meas_X_t , Meas_Z_t )
 
             ## Particle Based
             slam_obj.run(Meas_X_t,Meas_Z_t, GPS_Z_t,IMU_Z_t)
-            #slam_obj.set_groundtruth( GPS_Z_t, IMU_Z_t, Meas_X_t)
 
             #slam_obj.run(Meas_X_t_1,Meas_X_t,Meas_Z_t)
 
@@ -135,9 +141,12 @@ def ROS_bag_run():
             Gps_avail ,Imu_avail,Lidar_avail ,Odom_avail,Vel_avail,veh_info = 0, 0,0,0,0,1
         
         old_t = t.to_sec()
-    slam_obj.plot_results()    
+
+    #slam_obj.plot_results()    
     #slam_opt_obj.optimize(Gp)
     bag.close()
-    
+    #xlFile.close()
+
+
 if __name__ == '__main__':
     ROS_bag_run()

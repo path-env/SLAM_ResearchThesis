@@ -17,9 +17,9 @@ from utils.tools import Lidar_3D_Preprocessing
 from libs.slam_analyzer import Analyze as aly
 
 class RBPF_SLAM():
-    def __init__(self, plotter):
+    def __init__(self, plotter, N):
         # Parameters
-        self.Particle_Cnt = 10
+        self.Particle_Cnt = N
         self.iteration = 0
         self.MapSize = 100  # Local Map siz
         self.logger = logging.getLogger('ROS_Decode.RBPF_SLAM')
@@ -79,18 +79,18 @@ class RBPF_SLAM():
                  # ScanMatch - RTCSM
                 #self.SM.match(Est_X_t, Meas_Z_t)
                  # ScanMatch - ICP
-                _,RelativeTrans = self.SM.match(Meas_Z_t.to_numpy().T, 
+                GlobalTrans = self.SM.match(Meas_Z_t.to_numpy().T, 
                                                       self.Meas_Z_t_1.to_numpy().T, 
                                                       self.Particle_DFrame.at[i, 'st'], 
                                                       Est_X_t_1)
                 
                 # Error Beyond bound
-                # if RelativeTrans['error'] >5:
-                #     print(f"Skipping Particle update for {i}, and error:{RelativeTrans['error']} ")
+                # if GlobalTrans['error'] >5:
+                #     print(f"Skipping Particle update for {i}, and error:{GlobalTrans['error']} ")
                 #     continue
 
                 #print(translation, orientation,error)
-                self.Particle_DFrame.at[i, 'meas_likly'] = RelativeTrans['error']
+                self.Particle_DFrame.at[i, 'meas_likly'] = GlobalTrans['error']
 
             self._importance_weighting(Meas_Z_t)
         

@@ -32,7 +32,7 @@ class Map():
         if self.MapMode ==1: #Local Map
             self.Xlim_start = 0
             self.Xlim_end = (2*self.max_lidar_r + 91)
-            self.Ylim_start = (0);
+            self.Ylim_start = (0)
             self.Ylim_end = (2*self.max_lidar_r + 91)
             self.Lat_Width =  (self.Ylim_end -  self.Ylim_start)
             self.Long_Length =  (self.Xlim_end -  self.Xlim_start)
@@ -162,17 +162,18 @@ class Map():
         return self.Local_Map
     
     def PlotMap(self,Map,Pose_X_t,title):
-        Veh = patches.Rectangle((Pose_X_t['x']-self.Xlim_start -3.5 , Pose_X_t['y']-self.Ylim_start-5),5,0.3,linewidth=1,edgecolor='r')          
+        Veh = patches.Rectangle((Pose_X_t[0]-self.Xlim_start -3.5 , Pose_X_t[1]-self.Ylim_start-5),5,0.3,linewidth=1,edgecolor='r')          
         probMap = np.exp(Map)/(1.+np.exp(Map)) 
         fig,ax = plt.subplots()
-        plt.title(f"{title} x:{np.round(Pose_X_t['x'],5)} , y:{np.round(Pose_X_t['y'],5)}, yaw:{np.round(Pose_X_t['yaw'],5)}")
+        plt.title(f"{title} x:{np.round(Pose_X_t[0],5)} , y:{np.round(Pose_X_t[1],5)}, yaw:{np.round(Pose_X_t[2],5)}")
         # plt.ylim(self.Ylim_start , self.Ylim_end)
         # plt.xlim(self.Xlim_start , self.Xlim_end)
         ax.add_patch(Veh)                
         plt.imshow(probMap, cmap='Greys')
-#        plt.savefig('/Local/Local{title}.png')        
+        #plt.savefig('/Local/Local{title}.png')        
         plt.draw()
         plt.show() 
+        plt.pause(0.001)
         #plt.matshow(ttt)
     
     def MapExpansionCheck(self, x, y):
@@ -252,7 +253,7 @@ class Map():
         return Centre_in_robotF
     
     def getScanMap(self,Meas_Z_t,Pose_X_t):
-        (x,y,orientation) = (Pose_X_t['x'] ,Pose_X_t['y'] ,Pose_X_t['yaw'])
+        (x,y,orientation) = (Pose_X_t[0] ,Pose_X_t[1] ,Pose_X_t[2])
         
         self.MapExpansionCheck(x,y)
         ScanMap = np.zeros((self.Lat_Width,self.Long_Length))

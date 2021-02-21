@@ -66,7 +66,7 @@ class Analyze:
         
         #acc
         self.axs[1,2].plot(self.True_acc,'g.',label='GT', markersize=1)  
-        plt.pause(0.1)
+        plt.pause(0.0001)
         #plt.savefig('./results/GT.png')
         plt.show()
 
