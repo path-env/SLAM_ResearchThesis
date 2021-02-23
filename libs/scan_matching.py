@@ -418,26 +418,24 @@ class ICP():
 class RTCSM():
     def __init__(self, og,Est_X_t, Meas_Z_t):
         self.OG = og
-        self.Est_X_t_1 = {}
-        self.Meas_Z_t_1 = {}
         self.searchWindow_t = 4.0 # meters
         self.searchWindow_yaw = 90 #degrees
         self.highResMap_t_1,centre_pos,_,_ = self._highResMap(Est_X_t, Meas_Z_t)
         #Est_X_t, Meas_Z_t = self._modifyDtype(Est_X_t, Meas_Z_t)      
         self.lowResMap_t_1 = self._lowResMap(self.highResMap_t_1, centre_pos, Est_X_t)
         self.Pos_var = 0.1
-        self.ori_var = 0.2
+        self.ori_var = 0.01
         self.updateTargetMap(Est_X_t, Meas_Z_t)
         
-    def match(self, Est_X_t, Meas_Z_t):
+    def match(self, Meas_Z_t,Meas_Z_t_1,Est_X_t,Est_X_t_1):
         #Construct High resolution map
         HMap,centre_pos,dist_to_grid, theta_to_grid = self._highResMap(Est_X_t, Meas_Z_t)
         #Est_X_t, Meas_Z_t = self._modifyDtype(Est_X_t, Meas_Z_t)
         
         #Construct Low resolution Map
         LMap = self._lowResMap(HMap, centre_pos, Est_X_t)
-        Updt_X_t, confidence_ = self._search3DMatch( Est_X_t, Meas_Z_t, centre_pos, LMap, 0.5,mode='L')
-        Updt_X_t, confidence = self._search3DMatch(Updt_X_t, Meas_Z_t, centre_pos, HMap, 0.1, mode= 'H')
+        Updt_X_t, confidence_ = self._search3DMatch( Est_X_t, Est_X_t_1, Meas_Z_t, centre_pos, LMap, 0.5,mode='L')
+        Updt_X_t, confidence = self._search3DMatch(Updt_X_t, Est_X_t_1, Meas_Z_t, centre_pos, HMap, 0.1, mode= 'H')
         return Updt_X_t, confidence
     
     def _highResMap(self, Est_X_t, Meas_Z_t):
@@ -464,7 +462,7 @@ class RTCSM():
         #self.OG.PlotMap(np.rot90(LowResolMap,3),Est_X_t,'Low resolution Map 3:1')        
         return LowResolMap
     
-    def _search3DMatch(self, Est_X_t, Meas_Z_t, centre_pos, Map, searchStep,mode= 'L'):                
+    def _search3DMatch(self, Est_X_t, Est_X_t_1, Meas_Z_t, centre_pos, Map, searchStep,mode= 'L'):                
         max_range = self.OG.max_lidar_r
         MeasMap = Map
         # create a search space
@@ -479,9 +477,9 @@ class RTCSM():
             Ori_search_mask = np.zeros((Map.shape[0], Map.shape[1]))
         else:
             TargetMap = self.HTgtMap
-            ori_space = np.arange(-5,5,searchStep)
+            ori_space = np.arange(-5,5,searchStep/2)
         
-            EstDistDrvn = np.sqrt((self.Est_X_t_1[0] - Est_X_t[0])**2 + (self.Est_X_t_1[1] - Est_X_t[1])**2 )
+            EstDistDrvn = np.sqrt((Est_X_t_1[0] - Est_X_t[0])**2 + (Est_X_t_1[1] - Est_X_t[1])**2 )
             sq = np.array((x*searchStep)**2 + (y*searchStep)**2, dtype=np.float32)
             sq[np.where(sq ==0)] = np.ceil(EstDistDrvn)
             Pos_search_mask = (-(1 / (2 * self.Pos_var**2)) * (np.sqrt( np.abs(sq - EstDistDrvn))))#*0.0000001
@@ -489,7 +487,7 @@ class RTCSM():
 
             distv = np.sqrt(x**2 + y**2)
             distv[distv == 0] = 0.0001
-            yaw = np.deg2rad(Est_X_t[2]  - self.Est_X_t_1[2])
+            yaw = np.deg2rad(Est_X_t[2]  - Est_X_t_1[2])
             Ori_search_mask = np.arccos((x* np.cos(yaw) + y* np.sin(yaw)) / distv)
             Ori_search_mask = -1 / (2 * self.ori_var ** 2) * np.square(Ori_search_mask)        
         
@@ -503,7 +501,7 @@ class RTCSM():
             #Temp_map, centre_pos,_,_ = self._highResMap(Est, Meas_Z_t)      
             Temp_map= sp.ndimage.rotate(MeasMap, ori , reshape=False)
             # self.OG.PlotMap(np.rot90(dd,0),Est,'dd')     
-            # self.OG.PlotMap(np.rot90(Temp_map,0),Est,'tmp map')
+            #self.OG.PlotMap(np.rot90(Temp_map,0),Est,'tmp map')
             # plt.contour(Pos_search_mask)
             # plt.contour(Ori_search_mask)
             #plt.show()

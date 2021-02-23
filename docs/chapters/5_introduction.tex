@@ -1,93 +1,137 @@
-Thank you for using the Unofficial University of Lincoln Computer Science Undergraduate Thesis template! This template was authored by Benjamin Williams, inspired heavily from the template I made for postgraduate theses. If you are a postgraduate please check out my other thesis template on the Overleaf gallery for PGR theses. If you have any troubles, requests, or issues please get in touch with me at \fbox{\centering\texttt{\textbf{bwilliams@lincoln.ac.uk}}}.
 
-\section{Cautionary Note}
-As hinted by the title, this template is the \textbf{unofficial} template for the UoL's SoCS. As such, it is worth consulting your supervisor on it's usage for your thesis before using it. You should definitely do some research into this -- double and triple check that you are okay to use it, and it conforms with \textbf{your} assignment requirements. I am not responsible if this template does not conform to what is needed. However, it is worth noting that:
+\textit{Simultaneous Localization and Mapping}, commonly abbrevated as \textit{SLAM} is one of the fundamental task of any mobile robots which helps in building
+the Map of the environment without the knowledge of actual location and orientaion of the robot. It is one of the key initial step for the development of
+navigation systems for any mobile robot. It is also refered as  the chiken or the egg problem, as it requires precise locaion of the robot in the environment,
+to get an accurate map of the environment,but in order to determine the precise locaion, the map of the environment is required. This complexity has made 
+it harder to find a precise solution, accurate localization and mapping.
 
-\begin{enumerate}
-    \item This template \emph{should} provide \emph{all} of the required formatting for your undergraduate thesis, as required by the module;
-    \item Provides auxillary environments for typesetting ease -- such as ludography and in-built features of \LaTeX, and;
-    \item Formats references automatically in accordance with Harvard referencing, a requirement for the UoL's SoCS undergraduate dissertations.
-\end{enumerate}
+The complex task of localizing and mapping the surrounding has triggered a huge intrest widely in the research filed and it continues to  improve as the 
+technology evolves in both software and hardware. Over the past decade numerous stratergies and methods were developed to solve the SLAM problem. 
 
+A typical SLAM system uses a combination of odometry data, GPS ,IMU for localization and Camera, Lidar or Radar for perception. The information obtained from 
+these sensors are fused to obtain a full estimate on the state of the system.Though technologies evolved 
+in accquiring precise measurement uncertainities and errors are still prevelant due to various factors. Hence designing a solution considering the uncertainities 
+in the measurement is a key to achieve a good estimate of the location and map of the surrounding. Therefore a probabilistic approach to the solution is the key 
+to globally consistent Map.
 
-This is your introductory chapter. I do not include any guidance on how to write these chapters, but instead show you how to operate features of the template. The template is pre-formatted in accordance to the School of Computer Science's undergraduate thesis requirements. For example, this is double-spaced with the correct margin values and header formats. 
+The SLAM problem can be classified on various basis.SLAM problem can be broadly classified into \textit{Online SLAM} and \textit{Full SLAM}. 
+In the \textit{Online SLAM} problem,only the current state of the robot is estimated along with Map. In the \textit{Full SLAM} problem, the entire state of the 
+path traversed by the robot is estimated.Based on the setup of environment to the mapped the SLAM system can be braodly classified into \textit{Landmark-based SLAM} and 
+\textit{Grid-based SLAM}. In \textit{Landmark-based SLAM}, the robot knows the locaion of landmarks \textit{a priori}. 
+However in the real world scenario, the robot should establish a correspondence between the expected landmark maeasurement and the actual landmark observed. 
+The data association plays a key role in assigning the measurement to  its corresponding landmark.
+With the known correspondence and known pose of the robot relative to a landmark, the problem reduces to Mapping with known poses. The \textit{Landmark-based SLAM}
+is widely applied in many robotics application for instace, underwater exploration, mapping the underground mines. These SLAM system commonly use Ultrasonic
+sensors, camera for perception and GPS, odometry are used to find the motion of the robot.
 
-\section{Template Structure}
-Over on the left of this screen (assuming you're in Overleaf), you should see the file structure of this template. There are a few folders and files which are important. It is worth noting that this structure is the one I follow, and you are free to use whatever structure works best for you. In this template, the \texttt{chapters} folder is where all the chapters throughout the document are located. This includes other sections, such as the abstract, acknowledgements and reflective analysis.
+In absence of landmarks, \textit{Grid-based SLAM} provides a full SLAM solution with the help of 2-D or 3-D laser scanners. The observations made by the LiDar are 
+converted to a obstacle map also referred to as occupancy map. These observations are also used to correct the pose estimate of the robot. This SLAM approach provides
+a more useful way to map the surroundings as landmarks cannot be installed and observed in many challenging environment. More details on this approach will be provided in the 
+later chapters.
 
-By contrast, the \texttt{preamble} folder contains files which are used before the document is rendered. Think of this like the \texttt{head} tag in HTML: the files in this folder provide important meta-data (such as your name, student number etc) prior to the document being rendered. Your first task should be to modify this template, by opening up \texttt{preamble/details.tex} and inserting your own details. If you wish to use a package in your document, you can easily add it to the \texttt{preamble/packages.tex} file, and it will be imported.  Furthermore, the \texttt{preamble/bib-setup.tex} file is used to import references and set-up Bib\LaTeX, but that is covered later in this document.
+Numerous research has been done in the SLAM community. Some of the implementations are made available to the public in ROS. The most common are GMapping and Cartographer
 
+This paper presents insights on Particle Filter based and Graph based solutions to SLAM problem. These approaches are implemented, tested and results are compared thoroughly 
+to provide detailed report on throughput of the algorithms. The algorithm is desgined and the testing is performed on the data set obtained from CARLA. The paper is organized 
+as follows, The detailed literature review is provided on exisiting SLAM algorithms and applications, variants of SLAM in chapter 2. Probabilistic formulation of the SLAM
+problem is derived in chapter 3. Particle Filter based solution to SLAM is discussed and different implementations such as Rao-Blackweillized Particle Filter and GMapping
+algorithm are dicussed in detail and analyzed in chapter 4. Graph based solution to SLAM is dicussed and its various flavors are discussed in detail in chapter 5.
+Comparison and benchmarking of the above methods are performed based on test results and computation is provided in chapter 6. Concluding remark on all the observations 
+made so far in the paper is discussed in chapter 7.
 
-\section{Table of Tables (ToT) and Table of Figures (ToF)}
-At the beginning of this document, you probably noticed these two sections which were included before this chapter, and after the abstract. These are the table of figures and the table of tables. Lets include an image, and notice how it appears in the table of figures above as Figure \ref{fig:tof-example}.
+% Thank you for using the Unofficial University of Lincoln Computer Science Undergraduate Thesis template! 
+% This template was authored by Benjamin Williams, inspired heavily from the template I made for postgraduate theses. 
+% If you are a postgraduate please check out my other thesis template on the Overleaf gallery for PGR theses.
+%  If you have any troubles, requests, or issues please get in touch with me at \fbox{\centering\texttt{\textbf{bwilliams@lincoln.ac.uk}}}.
 
-\begin{figure}[htb]
-    \centering
-    \includegraphics[width=3cm, height=3cm]{FHD_logo.pdf}
-    \caption{The University of Lincoln's black-on-white crest, used in the title page of this thesis.}
-    \label{fig:tof-example}
-\end{figure}
+% \section{Cautionary Note}
+% As hinted by the title, this template is the \textbf{unofficial} template for the UoL's SoCS. As such, it is worth consulting your supervisor on it's usage for your thesis before using it. You should definitely do some research into this -- double and triple check that you are okay to use it, and it conforms with \textbf{your} assignment requirements. I am not responsible if this template does not conform to what is needed. However, it is worth noting that:
 
-In addition, here is an example of a table. Whilst not strictly required, it is worth noting that Table \ref{tbl:example-table} (on the next page) is formatted in accordance to normal usage in scientific articles. If you wish to create tables, it's probably best to use a \LaTeX~tables generator, like \url{http://tablesgenerator.com/}.
-
-\begin{table}[htb]
-\centering
-\caption{A list of house plants and their details.}
-\begin{tabular}{l|l|l|l}
-\textbf{Name} & \textbf{Type} & \textbf{Location}         & \textbf{Size} \\
-\hline\hline
-Billy         & Peace Lily    & Living room, on bookshelf & Massive!      \\
-Jezza         & Calathea      & Living room, on fireplace & Fairly big    \\
-Juno          & Laurel Bush   & Kitchen Window            & Fairly big    \\
-Jade          & Jade Plant    & Bathroom Window           & Mediumish     \\
-Bernard II    & Ivy           & Kitchen Window            & Big           \\
-Shelley       & Geranium      & Bedroom Window            & Small        \\
-Benth         & Kalanchoe     & Desktop                   & Big
-\end{tabular}
-\label{tbl:example-table}
-\end{table}
-
-\section{Typesetting Math}
-As computer scientists, we often need to describe things with mathematical symbols or operators. Luckily, mathematical typesetting is part and parcel of \LaTeX, with many solutions to this problem. This template uses the \texttt{amsmath} package for mathematical typesetting, alongside the \texttt{amssymb} package. For example, you can use in-line math formatting (with single dollars) like this:
-
-\begin{framed}
-For each $\mathbf{p} \in P$, the weight $w = \left( \mathbf{p}_0 \cdot \mathbf{p}_2 \right) - \mathbf{p}_1$ was calculated. This linear operation had a time complexity of $\mathcal{O}(n)$.
-\end{framed}
-
-Double dollars will centre your math without an equation number, like so:
-
-\begin{framed}
-$$ f(x) = \int_{-\infty}^{\infty}{\hat{f}(\xi)e^{2\pi i x \xi}d\xi} $$
-\end{framed}
-
-\begin{framed}
-\begin{align}
-a &= b + 1 
-\label{eqn:example1} \\
-\frac{\hbar^2}{2m}\nabla^2\Psi + V(\mathbf{r})\Psi
-&= -i\hbar \frac{\partial\Psi}{\partial t}    
-\label{eqn:example2}
-\end{align}
-\end{framed}
-
-And finally the \texttt{align} environment will allow to reference and align equations, like in Equation \ref{eqn:example1} and \ref{eqn:example2} below. Notice how both $=$ symbols are aligned horizontally.
+% \begin{enumerate}
+%     \item This template \emph{should} provide \emph{all} of the required formatting for your undergraduate thesis, as required by the module;
+%     \item Provides auxillary environments for typesetting ease -- such as ludography and in-built features of \LaTeX, and;
+%     \item Formats references automatically in accordance with Harvard referencing, a requirement for the UoL's SoCS undergraduate dissertations.
+% \end{enumerate}
 
 
-But what if you want to align two or more equations but have no equation numbers? Well, thats a job for the \texttt{align*} environment:
+% This is your introductory chapter. I do not include any guidance on how to write these chapters, but instead show you how to operate features of the template. The template is pre-formatted in accordance to the School of Computer Science's undergraduate thesis requirements. For example, this is double-spaced with the correct margin values and header formats. 
 
-\begin{framed}
-\begin{align*}
-d(\mathbf{a}, \mathbf{b}) &= \sqrt{(a_0 - b_0)^2 + (a_1 - b_1)^2 + ... + (a_n - b_n)^2} \\
-        &= \sqrt{\sum_{i=0}{n}{(a_i - b_i)^2}} \\
-        &= || \mathbf{a} - \mathbf{b} || \\
-        &= \sqrt{(\mathbf{a} - \mathbf{b}) \cdot (\mathbf{a} - \mathbf{b})}
-\end{align*}
-\end{framed}
+% \section{Template Structure}
+% Over on the left of this screen (assuming you're in Overleaf), you should see the file structure of this template. There are a few folders and files which are important. It is worth noting that this structure is the one I follow, and you are free to use whatever structure works best for you. In this template, the \texttt{chapters} folder is where all the chapters throughout the document are located. This includes other sections, such as the abstract, acknowledgements and reflective analysis.
+
+% By contrast, the \texttt{preamble} folder contains files which are used before the document is rendered. Think of this like the \texttt{head} tag in HTML: the files in this folder provide important meta-data (such as your name, student number etc) prior to the document being rendered. Your first task should be to modify this template, by opening up \texttt{preamble/details.tex} and inserting your own details. If you wish to use a package in your document, you can easily add it to the \texttt{preamble/packages.tex} file, and it will be imported.  Furthermore, the \texttt{preamble/bib-setup.tex} file is used to import references and set-up Bib\LaTeX, but that is covered later in this document.
 
 
-\section{Hmm, the margins seem big? Especially on the left of the page?}
-Yeah, that's okay. This is done by design as your thesis will be printed and bound on one side, so you need extra room on the left so the text doesn't fall into the bind on your page.
+% \section{Table of Tables (ToT) and Table of Figures (ToF)}
+% At the beginning of this document, you probably noticed these two sections which were included before this chapter, and after the abstract. These are the table of figures and the table of tables. Lets include an image, and notice how it appears in the table of figures above as Figure \ref{fig:tof-example}.
 
-The margins used in this template are the standards for postgraduate research theses, which are also applicable for undergraduate theses too. The reason for the large margins and big spacing is so those marking your work can write in notes and red-pen your thesis easily. So yeah, don't worry about it!
+% \begin{figure}[htb]
+%     \centering
+%     \includegraphics[width=3cm, height=3cm]{FHD_logo.pdf}
+%     \caption{The University of Lincoln's black-on-white crest, used in the title page of this thesis.}
+%     \label{fig:tof-example}
+% \end{figure}
 
-\cleardoublepage
+% In addition, here is an example of a table. Whilst not strictly required, it is worth noting that Table \ref{tbl:example-table} (on the next page) is formatted in accordance to normal usage in scientific articles. If you wish to create tables, it's probably best to use a \LaTeX~tables generator, like \url{http://tablesgenerator.com/}.
+
+% \begin{table}[htb]
+% \centering
+% \caption{A list of house plants and their details.}
+% \begin{tabular}{l|l|l|l}
+% \textbf{Name} & \textbf{Type} & \textbf{Location}         & \textbf{Size} \\
+% \hline\hline
+% Billy         & Peace Lily    & Living room, on bookshelf & Massive!      \\
+% Jezza         & Calathea      & Living room, on fireplace & Fairly big    \\
+% Juno          & Laurel Bush   & Kitchen Window            & Fairly big    \\
+% Jade          & Jade Plant    & Bathroom Window           & Mediumish     \\
+% Bernard II    & Ivy           & Kitchen Window            & Big           \\
+% Shelley       & Geranium      & Bedroom Window            & Small        \\
+% Benth         & Kalanchoe     & Desktop                   & Big
+% \end{tabular}
+% \label{tbl:example-table}
+% \end{table}
+
+% \section{Typesetting Math}
+% As computer scientists, we often need to describe things with mathematical symbols or operators. Luckily, mathematical typesetting is part and parcel of \LaTeX, with many solutions to this problem. This template uses the \texttt{amsmath} package for mathematical typesetting, alongside the \texttt{amssymb} package. For example, you can use in-line math formatting (with single dollars) like this:
+
+% \begin{framed}
+% For each $\mathbf{p} \in P$, the weight $w = \left( \mathbf{p}_0 \cdot \mathbf{p}_2 \right) - \mathbf{p}_1$ was calculated. This linear operation had a time complexity of $\mathcal{O}(n)$.
+% \end{framed}
+
+% Double dollars will centre your math without an equation number, like so:
+
+% \begin{framed}
+% $$ f(x) = \int_{-\infty}^{\infty}{\hat{f}(\xi)e^{2\pi i x \xi}d\xi} $$
+% \end{framed}
+
+% \begin{framed}
+% \begin{align}
+% a &= b + 1 
+% \label{eqn:example1} \\
+% \frac{\hbar^2}{2m}\nabla^2\Psi + V(\mathbf{r})\Psi
+% &= -i\hbar \frac{\partial\Psi}{\partial t}    
+% \label{eqn:example2}
+% \end{align}
+% \end{framed}
+
+% And finally the \texttt{align} environment will allow to reference and align equations, like in Equation \ref{eqn:example1} and \ref{eqn:example2} below. Notice how both $=$ symbols are aligned horizontally.
+
+
+% But what if you want to align two or more equations but have no equation numbers? Well, thats a job for the \texttt{align*} environment:
+
+% \begin{framed}
+% \begin{align*}
+% d(\mathbf{a}, \mathbf{b}) &= \sqrt{(a_0 - b_0)^2 + (a_1 - b_1)^2 + ... + (a_n - b_n)^2} \\
+%         &= \sqrt{\sum_{i=0}{n}{(a_i - b_i)^2}} \\
+%         &= || \mathbf{a} - \mathbf{b} || \\
+%         &= \sqrt{(\mathbf{a} - \mathbf{b}) \cdot (\mathbf{a} - \mathbf{b})}
+% \end{align*}
+% \end{framed}
+
+
+% \section{Hmm, the margins seem big? Especially on the left of the page?}
+% Yeah, that's okay. This is done by design as your thesis will be printed and bound on one side, so you need extra room on the left so the text doesn't fall into the bind on your page.
+
+% The margins used in this template are the standards for postgraduate research theses, which are also applicable for undergraduate theses too. The reason for the large margins and big spacing is so those marking your work can write in notes and red-pen your thesis easily. So yeah, don't worry about it!
+
+% \cleardoublepage

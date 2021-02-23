@@ -28,9 +28,9 @@ class Gmapping():
         return noise
 
     def genrate_particles(self,Meas_X_t, Meas_Z_t):
-        #self.SM1 = ICP() #GO_ICP(Meas_Z_t, Meas_X_t)
-        self.SM2 = RTCSM(self.OG,Meas_X_t, Meas_Z_t)
-        self.particleList = [Particle(Meas_X_t, Meas_Z_t, self.OG, self.SM2) for _ in range(self.particleCnt)]
+        self.SM = ICP() #GO_ICP(Meas_Z_t, Meas_X_t)
+        #self.SM = RTCSM(self.OG,Meas_X_t, Meas_Z_t)
+        self.particleList = [Particle(Meas_X_t, Meas_Z_t, self.OG, self.SM) for _ in range(self.particleCnt)]
 
     def main(self, Meas_X_t, Meas_Z_t, IMU_Z_t):
         #Meas_X_t['yaw_dot'] = IMU_Z_t['ang_vel']
@@ -58,7 +58,7 @@ class Gmapping():
                 cov = (diff.reshape(4,1)) @ diff.reshape(1,4)
                 # sample around the mode
                 sample_cnt = 10
-                Gaus_sampl = st_prime[0:4] #+ self.noise_matrix(sample_cnt, P.sigma)
+                Gaus_sampl = st_prime[0:4] + self.noise_matrix(sample_cnt, P.sigma)
                 # reinitialize
                 lykly = []
                 P.mu = np.array([0.,0.,0.,0.])
@@ -66,12 +66,15 @@ class Gmapping():
                 P.norm = 0.
 
                 for j in range(Gaus_sampl.shape[0]):
-                    GT,_ = P.scan_match(Gaus_sampl[j], Meas_Z_t, self.Meas_Z_t_1)
+                    GT = P.scan_match(Gaus_sampl[j], Meas_Z_t, self.Meas_Z_t_1)
                     lykly.append((GT['error']))
 
                 #lykly = np.array(lykly) - max(lykly)
+                if np.var(lykly)>=1:
+                    lykly = normalize(lykly)
                 lykly = softmax(lykly)
-
+                while np.var(lykly)>= 0.1:
+                    lykly = softmax(lykly)
                 # Compute Mean
                 P.norm = lykly.sum()
                 temp = Gaus_sampl.T * lykly
@@ -87,10 +90,6 @@ class Gmapping():
                 P.w = P.w * P.norm
             part_w.append(P.w)
 
-        # find the particle with the max weight
-        # max_id = np.argmax(part_w)
-        # P = self.particleList[max_id]
-        # self.aly._set_trajectory(P.st)
         part_w = softmax(part_w)
         for i,P in enumerate(self.particleList):
             P.w = part_w[i]
@@ -114,7 +113,7 @@ class Gmapping():
     
         self.prev_scan_update = mu
         self.aly._set_trajectory(mu)
-        #self.OG.Update(mu, Meas_Z_t, True)
+        self.OG.Update(mu, Meas_Z_t, True)
 
     def _random_resample(self, part_w):
         # Sample with replacement w.r.t weights
@@ -141,7 +140,7 @@ class Gmapping():
         self.Meas_X_t_1 = Meas.copy()
         self.Meas_Z_t_1 = Meas_Z_t.copy()
         self.iteration += 1
-        #self.aly.plot_results()
+        self.aly.plot_results()
 
 # if __name__ =='__main__':
 #     from main.ROSBag_decode import ROS_bag_run
