@@ -5,8 +5,7 @@ Created on Sun Aug 16 09:14:05 2020
 @author: Mangal
 """
 import numpy as np
-import pandas as pd
-import scipy
+import scipy as sp
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import logging
@@ -18,7 +17,7 @@ class Map():
     def __init__(self, Poses=None ,MapMode = 1,sceneName = None):
         fig,self.ax = plt.subplots()
         self.breath = 1.2
-        self.FOV = 5
+        self.FOV = 1
         self.max_lidar_r = 50 # For carla
         self.mapSize =  2*self.max_lidar_r + 91
         self.l_occ = np.log(0.65/0.35)
@@ -89,23 +88,22 @@ class Map():
         self.Local_Map = np.zeros((self.Lat_Width,self.Long_Length))
         Range_vec = Meas_Z_t['Range_XY_plane'].values
         Azi_vec =(np.array(Meas_Z_t['Azimuth'])) - orientation        
-        Limits = np.int32(self.mapSize/2)
         
-        for row_ind in range(-Limits, Limits):
-            for col_ind in range(-Limits,Limits):
+        for row_ind in range(self.Xlim_start, self.Xlim_end):
+            for col_ind in range(self.Ylim_start, self.Ylim_end):
                 R2cell = np.hypot((row_ind - x),(col_ind - y))
                 Azi2cell = np.degrees(np.arctan2((col_ind - y),(row_ind-x))) -orientation
                 Almostthere = np.argmin(np.abs(np.subtract(Azi2cell,Azi_vec)))   
                 Range_meas = Range_vec[Almostthere]
                 Azi_meas = Azi_vec[Almostthere]
                 if R2cell > min(self.max_lidar_r,(Range_meas +(self.breath/2))) or (abs(Azi2cell-Azi_meas) >self.FOV/2):
-                    self.Local_Map[row_ind- (-Limits), col_ind-(-Limits)] = self.l_unknown
+                    self.Local_Map[row_ind, col_ind] = self.l_unknown
                     continue
                 if Range_meas < self.max_lidar_r and  (abs(R2cell - Range_meas)<(self.breath/2)):
-                    self.Local_Map[row_ind- (-Limits), col_ind-(-Limits)] =  self.l_occ
+                    self.Local_Map[row_ind, col_ind] =  self.l_occ
                     continue
                 if R2cell < Range_meas:
-                    self.Local_Map[row_ind- (-Limits), col_ind-(-Limits)] = self.l_free
+                    self.Local_Map[row_ind, col_ind] = self.l_free
         #Plotting
         if PltEnable == True:
            self.PlotMap(self.Local_Map, Pose_X_t,'LocalMap')
@@ -130,19 +128,24 @@ class Map():
         theta_grid[theta_grid > 180] -= 360
         theta_grid[theta_grid < -180] += 360
 
-        self.dist_grid = scipy.linalg.norm(dx, axis=0) # matrix of L2 distance to all cells from robot
+        self.dist_grid = sp.linalg.norm(dx, axis=0) # matrix of L2 distance to all cells from robot
         for i in Meas_Z_t.iterrows():
             rng = i[1]['Range_XY_plane'] # range measured
             azi = i[1]['Azimuth'] # bearing measured
+            if rng > 45:
+                free_mask = (np.abs(theta_grid - azi) <= self.FOV/2.0) & (self.dist_grid < (rng - self.breath/2.0))
+                self.Local_Map[free_mask] += self.l_free
+                continue
+            
             free_mask = (np.abs(theta_grid - azi) <= self.FOV/2.0) & (self.dist_grid < (rng - self.breath/2.0))
             occ_mask = (np.abs(theta_grid - azi) <= self.FOV/2.0) & (np.abs(self.dist_grid - rng) <= self.breath/2.0)
 
             # Adjust the cells appropriately
             self.Local_Map[occ_mask] += self.l_occ
             self.Local_Map[free_mask] += self.l_free
-
-        self.Local_Map = np.fliplr(self.Local_Map)
-        self.Local_Map = np.flipud(self.Local_Map)
+        #self.Local_Map = sp.ndimage.rotate(self.Local_Map, orientation , reshape=False)
+        #self.Local_Map = np.fliplr(self.Local_Map)
+        #self.Local_Map = np.flipud(self.Local_Map)
         #Plotting
         if PltEnable == True:
            self.PlotMap(self.Local_Map, Pose_X_t,'LocalMap')
@@ -150,7 +153,7 @@ class Map():
         return self.Local_Map
     
     def PlotMap(self,Map,Pose_X_t,title):
-        Veh = patches.Rectangle((Pose_X_t[0] -3.5 , Pose_X_t[1]-5),5,0.3,linewidth=1,edgecolor='r')          
+        Veh = patches.Rectangle((Pose_X_t[1] -3.5 , Pose_X_t[0]-5),5,0.3,linewidth=1,edgecolor='r')          
         probMap = np.exp(Map)/(1.+np.exp(Map)) 
         plt.title(f"{title} x:{np.round(Pose_X_t[0],5)} , y:{np.round(Pose_X_t[1],5)}, yaw:{np.round(Pose_X_t[2],5)}")
         # plt.ylim(self.Ylim_start , self.Ylim_end)
@@ -194,22 +197,22 @@ class Map():
             pad_w = np.abs(X_Lim[0] - self.Xlim_start)
             pad_w = pad_w.astype(np.int32)
             self.LO_t_i = np.pad(self.LO_t_i, ((0,0),(0,pad_w)), 'constant', constant_values=(0,0))
-            self.Xlim_start = X_Lim[0]
+            self.Xlim_start = np.int64(X_Lim[0])
         if Expansionmode ==2:
             pad_w = np.abs(X_Lim[1] - self.Xlim_end)
             pad_w = pad_w.astype(np.int32)
             self.LO_t_i = np.pad(self.LO_t_i, ((0,0),(pad_w,0)), 'constant', constant_values=(0,0))
-            self.Xlim_end = X_Lim[1]
+            self.Xlim_end = np.int64(X_Lim[1])
         if Expansionmode ==3:
             pad_w = np.abs(Y_Lim[0] - self.Ylim_start)
             pad_w = pad_w.astype(np.int32)
             self.LO_t_i = np.pad(self.LO_t_i, ((0,pad_w),(0,0)), 'constant', constant_values=(0,0))
-            self.Ylim_start = Y_Lim[0]
+            self.Ylim_start = np.int64(Y_Lim[0])
         if Expansionmode ==4:
             pad_w = np.abs(Y_Lim[1] - self.Ylim_end)
             pad_w = pad_w.astype(np.int32)
             self.LO_t_i = np.pad(self.LO_t_i, ((pad_w,0),(0,0)), 'constant', constant_values=(0,0))
-            self.Ylim_end = Y_Lim[1]
+            self.Ylim_end = np.int64(Y_Lim[1])
 
     def _createGrid(self):
         MGrid = np.meshgrid( np.arange(self.Xlim_start,self.Xlim_end,self.Grid_resol), 
