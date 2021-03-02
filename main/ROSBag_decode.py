@@ -99,7 +99,7 @@ def ROS_bag_run():
             "range": 50,
             '''
             temp = np.frombuffer(msg.data,np.float32).reshape(-1,4)
-            Meas_Z_t = {'x': temp[:,0],'y': -1*temp[:,1],'z': temp[:,2] } ## In sensor Frame
+            Meas_Z_t = {'x': temp[:,0],'y': -1*temp[:,1],'z': temp[:,2], 't':t.to_sec()} ## In sensor Frame
             Lidar_avail =1
             logger.info(f"Lidar pointcloud for {t.to_sec()} extracted")
         
@@ -134,6 +134,7 @@ def ROS_bag_run():
             #slam_obj.create_graph(Meas_X_t , Meas_Z_t )
 
             ## Particle Based
+            #print(Meas_X_t['t'], Meas_Z_t['t'], GPS_Z_t['t'], IMU_Z_t['t'])
             slam_obj.run(Meas_X_t,Meas_Z_t, GPS_Z_t,IMU_Z_t)
 
             #slam_obj.run(Meas_X_t_1,Meas_X_t,Meas_Z_t)

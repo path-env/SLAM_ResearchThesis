@@ -94,14 +94,14 @@ class Gmapping():
         for i,P in enumerate(self.particleList):
             P.w = part_w[i]
 
-        self._est_state(Meas_Z_t)
+        self._est_state(Meas_Z_t, Meas_X_t)
         # Find N_eff
         n_eff = 1/np.sum(part_w**2)
         if n_eff < self.particleCnt/2:
             #resample
             self._random_resample(part_w)
 
-    def _est_state(self, Meas_Z_t):
+    def _est_state(self, Meas_Z_t, Meas_X_t):
         mu = np.array([0.,0.,0.,0.])
         var = np.zeros((4,4), dtype=np.float32)
         norm = 0.
@@ -113,7 +113,7 @@ class Gmapping():
     
         self.prev_scan_update = mu
         self.aly._set_trajectory(mu)
-        self.OG.Update(mu, Meas_Z_t, True)
+        self.OG.Update(mu, Meas_Z_t,True)
 
     def _random_resample(self, part_w):
         # Sample with replacement w.r.t weights
