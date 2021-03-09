@@ -111,7 +111,7 @@ def CTRA_Motion_Model(Est, cmdIn,dt,y_dot_tolerance=1):
     # Compute Next state
     Est_X_k = {}
     Meas_X_k_1 = {'x':Est[0], 'y':Est[1], 'yaw':Est[2], 'v':Est[3]}
-    del_v =  (cmdIn[1]-cmdIn[2]) *(dt**2)/2
+    del_v =  (cmdIn[1]-cmdIn[2]) *dt#*(dt**2)/2
     #del_v = cmdIn[1]-cmdIn[2]*dt
     Est_X_k['v'] = Meas_X_k_1['v'] + del_v - Sample_Gaus_dist(1*dt**2/2)   
     del_yaw =  cmdIn[0] *dt
@@ -138,20 +138,20 @@ def CTRA_Motion_Model(Est, cmdIn,dt,y_dot_tolerance=1):
     Est_X_k['acc'] =    cmdIn[1]
 
     # Compute Probability of being in the state with the applied cmdIn
-    theta = np.deg2rad( Est_X_k['yaw'])
-    del_x, del_y  = (Meas_X_k_1['x'] - Est_X_k['x']), (Meas_X_k_1['y'] - Est_X_k['y'])
-    mu = 0.5*(del_x*np.cos(theta) + del_y*np.sin(theta))/ (del_y*np.cos(theta) - del_x*np.sin(theta))
-    x_c = 0.5*(Meas_X_k_1['x'] + Est_X_k['x']) + mu*del_y
-    y_c = 0.5*(Meas_X_k_1['y'] + Est_X_k['y']) - mu*del_x
+    # theta = np.deg2rad( Est_X_k['yaw'])
+    # del_x, del_y  = (Meas_X_k_1['x'] - Est_X_k['x']), (Meas_X_k_1['y'] - Est_X_k['y'])
+    # mu = 0.5*(del_x*np.cos(theta) + del_y*np.sin(theta))/ (del_y*np.cos(theta) - del_x*np.sin(theta))
+    # x_c = 0.5*(Meas_X_k_1['x'] + Est_X_k['x']) + mu*del_y
+    # y_c = 0.5*(Meas_X_k_1['y'] + Est_X_k['y']) - mu*del_x
 
-    r = np.hypot((Meas_X_k_1['x'] - x_c), (Meas_X_k_1['y'] - y_c))
-    del_theta = np.arctan2((Est_X_k['x'] - x_c), (Est_X_k['y'] - y_c)) - np.arctan2((Meas_X_k_1['x'] - x_c), (Meas_X_k_1['y'] - y_c))
-    del_dist = r*del_theta
+    # r = np.hypot((Meas_X_k_1['x'] - x_c), (Meas_X_k_1['y'] - y_c))
+    # del_theta = np.arctan2((Est_X_k['x'] - x_c), (Est_X_k['y'] - y_c)) - np.arctan2((Meas_X_k_1['x'] - x_c), (Meas_X_k_1['y'] - y_c))
+    # del_dist = r*del_theta
 
-    a_hat = del_dist**2/dt**2
-    ydot_hat = del_theta/dt
+    # a_hat = del_dist**2/dt**2
+    # ydot_hat = del_theta/dt
 
-    rot_vel = (Meas_X_k_1['yaw'] - Est_X_k['yaw'])/dt - ydot_hat
+    # rot_vel = (Meas_X_k_1['yaw'] - Est_X_k['yaw'])/dt - ydot_hat
 
     # prvSt = np.zeros((6,1))
     # prvSt[0:4,:] = np.array(Meas_X_k_1).reshape(4,1) #x,y,yaw,v

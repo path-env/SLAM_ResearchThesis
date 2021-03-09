@@ -120,15 +120,16 @@ class Map():
         self.MapExpansionCheck(x,y)
         dim = self.max_lidar_r+self.Roffset
         self.Local_Map = np.zeros((dim*2, dim*2))
+        #self.Local_Map = np.zeros((self.Long_Length, self.Lat_Width))
         MGrid = np.meshgrid( np.arange(-(dim), dim,self.Grid_resol), 
                             np.arange(-(dim), dim,self.Grid_resol))
         Grid_Pos = np.zeros((2,dim*2, dim*2))
         Grid_Pos[0,:,:] =  MGrid[0]
         Grid_Pos[1,:,:] =  MGrid[1]
         dx = Grid_Pos.copy()
-        dx[0, :, :] = np.float16(dx[0, :, :]) #- y
-        dx[1, :, :] = np.float16(dx[1, :, :]) #- x
-        theta_grid = np.rad2deg(np.arctan2(dx[1, :, :], dx[0, :, :]) )
+        dx[0, :, :] = np.float16(dx[0, :, :]) 
+        dx[1, :, :] = np.float16(dx[1, :, :])
+        theta_grid = np.rad2deg(np.arctan2(dx[1, :, :], dx[0, :, :])) #-orientation
         #Meas_Z_t =self._Lidar2MapFrame(Meas_Z_t, Pose_X_t)
         # Wrap to +pi / - pi
         theta_grid[theta_grid > 180] -= 360
@@ -149,7 +150,7 @@ class Map():
             # Adjust the cells appropriately
             self.Local_Map[occ_mask] += self.l_occ
             self.Local_Map[free_mask] += self.l_free
-        #self.Local_Map = sp.ndimage.rotate(self.Local_Map, orientation , reshape=False)
+        # self.Local_Map = sp.ndimage.rotate(self.Local_Map, orientation , reshape=False)
         # self.Local_Map = np.fliplr(self.Local_Map)
         # self.Local_Map = np.flipud(self.Local_Map)
         #Plotting
@@ -160,17 +161,19 @@ class Map():
         return GlobalMap
     
     def Lidar2MapFrame(self, Local_Map , Pose_X_t):
-        
+        dim = self.max_lidar_r+self.Roffset
         GlobalMap = np.zeros((self.Long_Length, self.Lat_Width))
         (y,x) = np.where(Local_Map > 0)
-        Meas = np.vstack((y,x))
         Pos = np.array([Pose_X_t[1], Pose_X_t[0]]).reshape(2,1)
-        #pt = Meas - Pos
-        MapIdx =Meas + Pos # rotate(Pose_X_t[2]) @ Meas + Pos
-        MapIdx = np.round(MapIdx).astype(np.int32)
-        GlobalMap[MapIdx[1], MapIdx[0]]= Local_Map[y,x]
-        self.PlotMap(GlobalMap,Pose_X_t,'Test')
+        Pos = np.ceil(Pos).astype(np.int32)
+        Meas = np.vstack((y,x))-dim
+        MapIdx = Meas +Pos +dim # rotate(-Pose_X_t[2]) @ Meas +Pos +dim
+        #MapIdx = np.round(MapIdx).astype(np.int32) +dim
+        GlobalMap[MapIdx[1], MapIdx[0]+100]= Local_Map[y,x]
+        self.PlotMap(GlobalMap,Pose_X_t,'Transformed to MAP Frame')
         self.Pose_t_1 = Pose_X_t
+        # print(MapIdx)
+        # print(Meas)
         return GlobalMap
 
 
@@ -182,7 +185,7 @@ class Map():
         plt.ylim(0,self.Lat_Width)
         plt.xlim(0,self.Long_Length)
         self.ax.add_patch(Veh)                
-        plt.imshow(probMap.T, cmap='Spectral')
+        plt.imshow(probMap, cmap='Greys')
         #plt.savefig('/Local/Local{title}.png')        
         plt.pause(0.001)
         #plt.matshow(probMap.T)

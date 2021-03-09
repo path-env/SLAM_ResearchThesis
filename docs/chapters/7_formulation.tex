@@ -12,6 +12,24 @@
 \section{State Correction}
 \subsection{Observation Models}
 \subsection{Scan Matching}
+\subsubsection{Loop Closure}
+In several cases the robot might traverse through a previously vsited location and it must be able to recognize it and it is termed as \textit{loop closing}. This enables to 
+achieve better accuracy of the Map.Apart from Map building the ability of robots to recognize the previously visited place or learned location enables the bot to fallback to 
+the specific location in use cases such as trouble shooting, charging dock and determining desttination. 
+The problem of Loop closure is challenging as in the real world the algorithm must be able to achieve good results even in dynamic environment. Also the robot must be capable 
+of identifying similar looking environment. This method of relating the current measurement with a previous measurement is a process of \textit{data association}. Errors are 
+common in \textit{data association} and it leads to divergence of the map when the errors in \textit{data association} are not handled carefully.With the presence of landmarks 
+the covariance information of the landmarks is required.
+\cite{E.Olson/LocalSM} poposed methods to determine whetehr a local scan match is globally correct. It also incorporates ambiguity and outlier testing using 
+\textit{Single Cluster Graph Partitioning (SCGP)}. It also argues that the amount of evidence to determine the similarity between two places scales with robots positional uncertainity.
+Find Local matches withon a seacrch afea provided by a prior , then combine multiple scans to get a latger local matches.
+In order to estimate the relative positional uncertainity between nodes a and b, the determinant of the covariance matrix provides the search space to find the pose b from pose a.
+Using Dijkstra projection algorithm, the uncertainity is estimated and the relative uncertainity between two paths is dominated by the shortest one. 
+
+Grouping
+pairwiseconsistncy
+local uniqeness and oyutlier rejection
+global sufficiency
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Summary}

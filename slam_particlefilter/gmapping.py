@@ -42,7 +42,7 @@ class Gmapping():
             P.id = len(part_w)
             st_prime = P.motion_prediction(cmdIn, dt)
             GT = P.scan_match(st_prime, Meas_Z_t, self.Meas_Z_t_1)
-
+            # print(GT['error'])
             if GT['error'] > 5:
                 #compute st, w
                 P.st = st_prime
@@ -52,10 +52,10 @@ class Gmapping():
                 SM_st = GT['T'].flatten().tolist()
                 SM_st.append(GT['yaw'].tolist())
                 SM_st.append(st_prime[3])
-                diff = SM_st - st_prime 
-                #st_prime = np.array(SM_st)
-                #print(diff)
-                cov = (diff.reshape(4,1)) @ diff.reshape(1,4)
+                # diff = SM_st - st_prime 
+                # st_prime = np.array(SM_st)
+                # print(diff)
+                # cov = (diff.reshape(4,1)) @ diff.reshape(1,4)
                 # sample around the mode
                 sample_cnt = 10
                 Gaus_sampl = st_prime[0:4] + self.noise_matrix(sample_cnt, P.sigma)
@@ -113,7 +113,7 @@ class Gmapping():
     
         self.prev_scan_update = mu
         self.aly._set_trajectory(mu)
-        self.OG.Update(mu, Meas_Z_t,True)
+        self.OG.Update(Meas_X_t, Meas_Z_t,True)
 
     def _random_resample(self, part_w):
         # Sample with replacement w.r.t weights
