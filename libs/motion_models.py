@@ -105,8 +105,8 @@ def CTRA_Motion_Model(Est, cmdIn,dt,y_dot_tolerance=1):
     #Params
     a1 = 0.05   #m/m
     a2 = 0.01  #m/deg
-    a3 = 0.05      #deg/m
-    a4 = 0.05   #deg/deg
+    a3 = 1      #deg/m
+    a4 = 1   #deg/deg
     
     # Compute Next state
     Est_X_k = {}
@@ -114,7 +114,7 @@ def CTRA_Motion_Model(Est, cmdIn,dt,y_dot_tolerance=1):
     del_v =  (cmdIn[1]-cmdIn[2]) *dt#*(dt**2)/2
     #del_v = cmdIn[1]-cmdIn[2]*dt
     Est_X_k['v'] = Meas_X_k_1['v'] + del_v - Sample_Gaus_dist(1*dt**2/2)   
-    del_yaw =  cmdIn[0] *dt
+    del_yaw =  (cmdIn[0]) *dt
     Est_X_k['yaw'] =  np.deg2rad(Meas_X_k_1['yaw']) + del_yaw
     Meas_X_k_1['yaw'] = np.deg2rad(Meas_X_k_1['yaw'])
     if cmdIn[1] > 1:

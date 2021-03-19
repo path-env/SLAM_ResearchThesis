@@ -24,10 +24,12 @@ from squaternion import Quaternion
 import csv
 
 def ROS_bag_run():
+    iterate = 0
     if sys.platform =='linux':
         # bag = rosbag.Bag('/media/mangaldeep/HDD3/DataSets/Bagfiles/CARLA_Autopilot_ROS_01_02_2021_Town3.bag') #508 - 620
         # bag = rosbag.Bag('/media/mangaldeep/HDD3/DataSets/Bagfiles/CARLA_Autopilot_ROS_08_02_2021_Town4.bag')
         bag = rosbag.Bag('/media/mangaldeep/HDD3/DataSets/Bagfiles/CARLA_Autopilot_ROS_08_02_2021.bag')
+        # bag = rosbag.Bag('/media/mangaldeep/HDD3/DataSets/Bagfiles/CARLA_Autopilot_ROS_12_03_2021_Town3.bag') # lidar freq  1 HZ , scanmatching doesnt work
     else:
         bag = rosbag.Bag('G:/DataSets/BagFiles/CARLA_Autopilot_ROS.bag') #508 - 620
 
@@ -62,7 +64,7 @@ def ROS_bag_run():
     #     writer.writerow(['Time', 'x','y','yaw','v','acc', 'steer', 'Lat','Long', 'Alt', 'Roll', 'Pitch', 'Yaw', 'AngVel'])
     for topic, msg, t in bag.read_messages(topics=['/carla/ego_vehicle/gnss/gnss1/fix',
                                                 '/carla/ego_vehicle/odometry',
-                                                '/carla/ego_vehicle/lidar/lidar1/point_cloud',
+                                                '/carla/ego_vehicle/semantic_lidar/lidar1/point_cloud',
                                                 '/carla/ego_vehicle/vehicle_info',
                                                 '/carla/ego_vehicle/vehicle_status',
                                                 '/carla/ego_vehicle/imu/imu1']):
@@ -92,17 +94,6 @@ def ROS_bag_run():
             Odom_avail =1
             logger.info(f"Odometry for {t.to_sec()} extracted")
         
-        if topic == '/carla/ego_vehicle/lidar/lidar1/point_cloud':
-            '''
-            From sensor.json file
-            "spawn_point": {"x": 0.0, "y": 0.0, "z": 2.4, "roll": 0.0, "pitch": 0.0, "yaw": 0.0},
-            "range": 50,
-            '''
-            temp = np.frombuffer(msg.data,np.float32).reshape(-1,4)
-            Meas_Z_t = {'x': temp[:,0],'y': -1*temp[:,1],'z': temp[:,2], 't':t.to_sec()} ## In sensor Frame
-            Lidar_avail =1
-            logger.info(f"Lidar pointcloud for {t.to_sec()} extracted")
-        
         if topic == '/carla/ego_vehicle/gnss/gnss1/fix':
             GPS_Z_t['lat']= (msg.latitude)
             GPS_Z_t['long']= (msg.longitude)
@@ -124,7 +115,18 @@ def ROS_bag_run():
             # lin_acc =  {'x':msg.linear_acceleration.x , 'y':msg.linear_acceleration.y , 'z':msg.linear_acceleration.z }
             Imu_avail =1
             logger.info(f"IMU for {t.to_sec()} extracted") 
-            
+
+        if topic == '/carla/ego_vehicle/semantic_lidar/lidar1/point_cloud':
+            '''
+            From sensor.json file
+            "spawn_point": {"x": 0.0, "y": 0.0, "z": 2.4, "roll": 0.0, "pitch": 0.0, "yaw": 0.0},
+            "range": 50,
+            '''
+            temp = np.frombuffer(msg.data,np.float32).reshape(-1,6)
+            Meas_Z_t = {'x': temp[:,0],'y': -1*temp[:,1],'z': temp[:,2], 't':t.to_sec()} ## In sensor Frame
+            Lidar_avail =1
+            logger.info(f"Lidar pointcloud for {t.to_sec()} extracted")
+
         if Imu_avail and Gps_avail and Odom_avail and Lidar_avail and Vel_avail and veh_info: 
             plotter.set_groundtruth(GPS_Z_t, IMU_Z_t, Meas_X_t)
             #writer.writerow([Meas_X_t['t'], Meas_X_t['x'],Meas_X_t['y'], Meas_X_t['yaw'], Meas_X_t['v'], Meas_X_t['acc'], Meas_X_t['steer'], GPS_Z_t['lat'],
@@ -134,7 +136,7 @@ def ROS_bag_run():
             #slam_obj.create_graph(Meas_X_t , Meas_Z_t )
 
             ## Particle Based
-            #print(Meas_X_t['t'], Meas_Z_t['t'], GPS_Z_t['t'], IMU_Z_t['t'])
+            # print(Meas_X_t['t'], Meas_Z_t['t'], GPS_Z_t['t'], IMU_Z_t['t'])
             slam_obj.run(Meas_X_t,Meas_Z_t, GPS_Z_t,IMU_Z_t)
 
             #slam_obj.run(Meas_X_t_1,Meas_X_t,Meas_Z_t)

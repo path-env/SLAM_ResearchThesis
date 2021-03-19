@@ -36,7 +36,7 @@ def Lidar_3D_Preprocessing(Meas_Z_t):
     '''
     #RANSAC
     #GroundPlaneRemovedIndices = RANSAC(Meas_Z_t,2)
-    Req_Indices = Zbased(Meas_Z_t,-2.2,5)
+    Req_Indices = Zbased(Meas_Z_t,-2,5)
     Meas_Z_t = {'x':Meas_Z_t['x'][Req_Indices] ,'y':Meas_Z_t['y'][Req_Indices], 'z':Meas_Z_t['z'][Req_Indices]}
     Meas =  pd.DataFrame(Meas_Z_t)
     Meas = Meas.assign(Azimuth = np.rad2deg(np.arctan2(Meas['y'].values , Meas['x'].values)))

@@ -28,13 +28,14 @@ class Gmapping():
         return noise
 
     def genrate_particles(self,Meas_X_t, Meas_Z_t):
-        self.SM = ICP() #GO_ICP(Meas_Z_t, Meas_X_t)
-        #self.SM = RTCSM(self.OG,Meas_X_t, Meas_Z_t)
+        self.OG.Update(Meas_X_t, Meas_Z_t,True)
+        # self.SM = ICP() #GO_ICP(Meas_Z_t, Meas_X_t)
+        self.SM = RTCSM(self.OG,Meas_X_t, Meas_Z_t)
         self.particleList = [Particle(Meas_X_t, Meas_Z_t, self.OG, self.SM) for _ in range(self.particleCnt)]
 
     def main(self, Meas_X_t, Meas_Z_t, IMU_Z_t):
         #Meas_X_t['yaw_dot'] = IMU_Z_t['ang_vel']
-        cmdIn = np.array([IMU_Z_t['ang_vel'], Meas_X_t[-3], self.Meas_X_t_1[-3]]).reshape(3,)
+        cmdIn = np.array([IMU_Z_t['ang_vel'], Meas_X_t[-3], self.Meas_X_t_1[-3], self.IMU_Z_t_1['ang_vel']]).reshape(4,)
         dt=Meas_X_t[-1] - self.Meas_X_t_1[-1]
 
         part_w = []  
@@ -42,7 +43,7 @@ class Gmapping():
             P.id = len(part_w)
             st_prime = P.motion_prediction(cmdIn, dt)
             GT = P.scan_match(st_prime, Meas_Z_t, self.Meas_Z_t_1)
-            # print(GT['error'])
+            # print(GT['error'])s
             if GT['error'] > 5:
                 #compute st, w
                 P.st = st_prime
@@ -52,9 +53,9 @@ class Gmapping():
                 SM_st = GT['T'].flatten().tolist()
                 SM_st.append(GT['yaw'].tolist())
                 SM_st.append(st_prime[3])
-                # diff = SM_st - st_prime 
-                # st_prime = np.array(SM_st)
-                # print(diff)
+                diff = SM_st - st_prime 
+                st_prime = np.array(SM_st)
+                print(diff)
                 # cov = (diff.reshape(4,1)) @ diff.reshape(1,4)
                 # sample around the mode
                 sample_cnt = 10
@@ -113,8 +114,9 @@ class Gmapping():
     
         self.prev_scan_update = mu
         self.aly._set_trajectory(mu)
-        self.OG.Update(Meas_X_t, Meas_Z_t,True)
-
+        self.OG.Update(mu, Meas_Z_t,True)
+        self.SM.updateTargetMap(mu, Meas_Z_t)
+        
     def _random_resample(self, part_w):
         # Sample with replacement w.r.t weights
         Choice_Indx = np.random.choice(np.arange(self.particleCnt), self.particleCnt, replace=True,
@@ -131,6 +133,7 @@ class Gmapping():
         if self.iteration == 0:
             self.genrate_particles(Meas,Meas_Z_t)
             self.Meas_X_t_1 = Meas.copy()
+            self.IMU_Z_t_1 = IMU_Z_t.copy()
             self.Meas_Z_t_1 = Meas_Z_t.copy()
             self.iteration += 1
             return None
@@ -138,6 +141,7 @@ class Gmapping():
         assert (self.Meas_X_t_1[-1] - Meas[-1]) <= 1, "Time difference is very high"
         self.main(Meas, Meas_Z_t, IMU_Z_t)
         self.Meas_X_t_1 = Meas.copy()
+        self.IMU_Z_t_1 = IMU_Z_t.copy()
         self.Meas_Z_t_1 = Meas_Z_t.copy()
         self.iteration += 1
         self.aly.plot_results()

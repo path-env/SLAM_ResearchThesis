@@ -5,6 +5,7 @@ Created on Sun Aug 16 09:14:05 2020
 @author: Mangal
 """
 import numpy as np
+from numpy.core.arrayprint import _array_repr_implementation
 import scipy as sp
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -74,7 +75,7 @@ class Map():
         self.LO_t_i = InvModel + self.LO_t_i  - self.LO_t
         #Plotting
         if PltEnable == True:
-            # self.PlotMap(self.LO_t_i, Pose_X_t, 'GlobalMap')
+            self.PlotMap(self.LO_t_i, Pose_X_t, 'GlobalMap')
             pass
         #return self.LO_t_i
      
@@ -167,15 +168,16 @@ class Map():
         Pos = np.array([Pose_X_t[1], Pose_X_t[0]]).reshape(2,1)
         Pos = np.ceil(Pos).astype(np.int32)
         Meas = np.vstack((y,x))-dim
-        MapIdx = Meas +Pos +dim # rotate(-Pose_X_t[2]) @ Meas +Pos +dim
-        #MapIdx = np.round(MapIdx).astype(np.int32) +dim
+        # Offst = np.array([self.Long_Length, self.Lat_Width]).reshape(2,1)/2
+        # Offst = Offst.astype(np.int32)
+        MapIdx = rotate(-Pose_X_t[2]) @ Meas +Pos +dim
+        MapIdx = np.ceil(MapIdx).astype(np.int32) 
         GlobalMap[MapIdx[1], MapIdx[0]+100]= Local_Map[y,x]
-        self.PlotMap(GlobalMap,Pose_X_t,'Transformed to MAP Frame')
+        # self.PlotMap(GlobalMap,Pose_X_t,'Transformed to MAP Frame')
         self.Pose_t_1 = Pose_X_t
         # print(MapIdx)
         # print(Meas)
         return GlobalMap
-
 
     def PlotMap(self,Map,Pose_X_t,title):
         dim = self.max_lidar_r+self.Roffset
@@ -185,7 +187,7 @@ class Map():
         plt.ylim(0,self.Lat_Width)
         plt.xlim(0,self.Long_Length)
         self.ax.add_patch(Veh)                
-        plt.imshow(probMap, cmap='Greys')
+        plt.imshow(probMap.T, cmap='Greys')
         #plt.savefig('/Local/Local{title}.png')        
         plt.pause(0.001)
         #plt.matshow(probMap.T)
@@ -197,7 +199,7 @@ class Map():
         while (quadrant != -1):
             self.logger.info('Exnding the Map in quadrant=%d',quadrant)
             #self.expandOccupancyGrid(quadrant)
-            quadrant = self.ExpansionDirection(X_Lim, Y_Lim)
+            quadrant, X_Lim, Y_Lim = self.ExpansionDirection(X_Lim, Y_Lim)
             if quadrant ==-1:
                 self._createGrid()
 
@@ -216,7 +218,7 @@ class Map():
             self.ExpandQuadrant(4, X_Lim, Y_Lim) #expand right
         else:
             quadrant = -1
-        return quadrant
+        return quadrant, X_Lim, Y_Lim
    
     def ExpandQuadrant(self, Expansionmode, X_Lim, Y_Lim):
         GridShape = self.Grid_Pos.shape
@@ -224,12 +226,12 @@ class Map():
         if Expansionmode ==1:
             pad_w = np.abs(X_Lim[0] - self.Xlim_start)
             pad_w = pad_w.astype(np.int32)
-            self.LO_t_i = np.pad(self.LO_t_i, ((0,pad_w),(0,0)), 'constant', constant_values=(0,0))
+            self.LO_t_i = np.pad(self.LO_t_i, ((pad_w,0),(0,0)), 'constant', constant_values=(0,0))
             self.Xlim_start = np.int64(X_Lim[0])
         if Expansionmode ==2:
             pad_w = np.abs(X_Lim[1] - self.Xlim_end)
             pad_w = pad_w.astype(np.int32)
-            self.LO_t_i = np.pad(self.LO_t_i, ((pad_w,0),(0,0)), 'constant', constant_values=(0,0))
+            self.LO_t_i = np.pad(self.LO_t_i, ((0,pad_w),(0,0)), 'constant', constant_values=(0,0))
             self.Xlim_end = np.int64(X_Lim[1])
         if Expansionmode ==3:
             pad_w = np.abs(Y_Lim[0] - self.Ylim_start)
@@ -266,36 +268,52 @@ class Map():
         Centre_in_robotF = np.where(self.dist_grid==np.min(self.dist_grid))
         return Centre_in_robotF
     
+    def getExtractMap(self,Pose_X_t):
+        dim = self.max_lidar_r+self.Roffset
+        (y,x) = (dim, dim)
+        Pos = np.array([Pose_X_t[1], Pose_X_t[0]]).reshape(2,1)
+        Pos = np.ceil(Pos).astype(np.int32)
+        centre_pos = self.getMapPivotPoint()
+        Meas = np.vstack((centre_pos[1],centre_pos[0]))-dim
+        MapIdx = rotate(-Pose_X_t[2]) @ Meas +Pos +dim
+        MapIdx = np.ceil(MapIdx).astype(np.int32).flatten().tolist()
+        x1, x2 = MapIdx[0]-dim+100 , MapIdx[0]+dim+100
+        y1, y2 = MapIdx[1]-dim , MapIdx[1]+dim
+        extract_map = self.LO_t_i[y1:y2, x1:x2]
+        return extract_map.T, centre_pos 
+
     def getScanMap(self,Meas_Z_t,Pose_X_t):
         (x,y,orientation) = (Pose_X_t[0] ,Pose_X_t[1] ,Pose_X_t[2])
-        
-        self.MapExpansionCheck(x,y)
-        ScanMap = np.zeros((self.Lat_Width,self.Long_Length))
+        #self.MapExpansionCheck(x,y)
+        ScanMap = np.zeros((self.Long_Length,self.Lat_Width))
         
         dx = self.Grid_Pos.copy()
-        dx[0, :, :] = np.float16(dx[0, :, :]) - x# A matrix of all the x coordinates of the cell
-        dx[1, :, :] = np.float16(dx[1, :, :]) - y# A matrix of all the y coordinates of the cell
-        theta_grid = np.array(np.rad2deg(np.arctan2(dx[1, :, :], dx[0, :, :])) - (orientation ))
+        dx[0, :, :] = np.float16(dx[0, :, :]) 
+        dx[1, :, :] = np.float16(dx[1, :, :]) 
+        theta_grid = np.rad2deg(np.arctan2(dx[1, :, :], dx[0, :, :]))
 
         # Wrap to +pi / - pi
         theta_grid[theta_grid > 180] -= 360
         theta_grid[theta_grid < -180] += 360
 
-        dist_grid = sp.linalg.norm(dx, axis=0) # matrix of L2 distance to all cells from robot
+        dist_grid = sp.linalg.norm(dx, axis=0)
 
         for i in Meas_Z_t.iterrows():
-            r = i[1]['Range_XY_plane'] # range measured
-            b = i[1]['Azimuth'] # bearing measured
-            free_mask = (np.abs(theta_grid - b) <= self.FOV/2.0) & (dist_grid < (r - self.breath/2.0))
-            occ_mask = (np.abs(theta_grid - b) <= self.FOV/2.0) & (np.abs(dist_grid - r) <= self.breath/2.0)
+            rng = i[1]['Range_XY_plane'] 
+            azi = i[1]['Azimuth'] 
+            if rng > 45:
+                free_mask = (np.abs(theta_grid - azi) <= self.FOV/2.0) & (dist_grid < (rng - self.breath/2.0))
+                ScanMap[free_mask] += self.l_free
+                continue
+            free_mask = (np.abs(theta_grid - azi) <= self.FOV/2.0) & (dist_grid < (rng - self.breath/2.0))
+            occ_mask = (np.abs(theta_grid - azi) <= self.FOV/2.0) & (np.abs(dist_grid - rng) <= self.breath/2.0)
 
-            # Adjust the cells appropriately
             ScanMap[occ_mask] += self.l_occ
             ScanMap[free_mask] += self.l_free 
             
         centre_pos = np.where(dist_grid==np.min(dist_grid))
         c_pos = (centre_pos[0].tolist(), centre_pos[1].tolist())
-        
+        #ScanMap =self.Lidar2MapFrame(ScanMap, Pose_X_t)
         #self.PlotMap(ScanMap, Pose_X_t,'LocalMap')
         return ScanMap,c_pos, dist_grid, theta_grid
         
