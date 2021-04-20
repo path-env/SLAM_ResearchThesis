@@ -54,7 +54,7 @@ class Gmapping():
                 SM_st.append(GT['yaw'].tolist())
                 SM_st.append(st_prime[3])
                 diff = SM_st - st_prime 
-                st_prime = np.array(SM_st)
+                #st_prime = np.array(SM_st)
                 print(diff)
                 # cov = (diff.reshape(4,1)) @ diff.reshape(1,4)
                 # sample around the mode

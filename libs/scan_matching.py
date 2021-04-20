@@ -5,6 +5,7 @@ Created on Fri Dec 25 09:59:08 2020
 @author: MangalDeep
 """
 import numpy as np
+from numpy.core.fromnumeric import shape
 import pandas as pd
 from scipy.ndimage import gaussian_filter
 from scipy.linalg import norm
@@ -418,14 +419,15 @@ class ICP():
 class RTCSM():
     def __init__(self, og,Est_X_t, Meas_Z_t):
         self.OG = og
+        self.dim = self.OG.max_lidar_r + self.OG.Roffset
         self.searchWindow_t = 4.0 # meters
         self.searchWindow_yaw = 90 #degrees
         self.highResMap_t_1,centre_pos = self._highResMap(Est_X_t, Meas_Z_t)
         #Est_X_t, Meas_Z_t = self._modifyDtype(Est_X_t, Meas_Z_t)      
         self.lowResMap_t_1 = self._lowResMap(self.highResMap_t_1, centre_pos, Est_X_t)
-        self.Pos_var = 0.1
-        self.ori_var = 0.01
         self.updateTargetMap(Est_X_t, Meas_Z_t)
+        self.Pos_var = 0.1
+        self.ori_var = 0.1
         
     def match(self, Meas_Z_t,Meas_Z_t_1,Est_X_t,Est_X_t_1):
         #Construct High resolution map
@@ -439,13 +441,10 @@ class RTCSM():
         Trans = {'error':confidence, 'T':np.array([Updt_X_t[0], Updt_X_t[1]]).reshape(2,-1), 'yaw':Updt_X_t[2]}
         return Trans
     
-    def _highResMap(self, Est_X_t, Meas_Z_t):
-        dim = self.OG.max_lidar_r + self.OG.Roffset
-        
+    def _highResMap(self, Est_X_t, Meas_Z_t):        
         HMap,centre_pos,_,_ = self.OG.getScanMap(Meas_Z_t, Est_X_t)
-                
-        Xrange = np.arange(centre_pos[0][0]-dim ,  centre_pos[0][0]+dim)
-        Yrange = np.arange(centre_pos[1][0]-dim ,  centre_pos[1][0]+dim)     
+        Xrange = np.arange(centre_pos[0][0]-self.dim ,  centre_pos[0][0]+self.dim)
+        Yrange = np.arange(centre_pos[1][0]-self.dim ,  centre_pos[1][0]+self.dim)     
         
         Map_confined = HMap[Yrange[0]:Yrange[-1]+1, Xrange[0]:Xrange[-1]+1]
         # dist_to_grid = dist_to_grid[Xrange[0]:Xrange[-1], Yrange[0]:Yrange[-1]]
@@ -464,82 +463,149 @@ class RTCSM():
         return LowResolMap
     
     def _search3DMatch(self, Est_X_t, Est_X_t_1, Meas_Z_t, centre_pos, Map, searchStep,mode= 'L'):                
-        max_range = self.OG.max_lidar_r
         MeasMap = Map
         # create a search space
-        Numcell = (max_range+ self.OG.Roffset)*searchStep
-        Xrange = np.arange(-Numcell ,  Numcell, searchStep)
-        Yrange = np.arange(-Numcell ,  Numcell, searchStep)
+        Numcell = 15 #(self.dim)*searchStep
+        Xrange = np.arange(-Numcell ,  Numcell)#, searchStep)
+        Yrange = np.arange(-Numcell ,  Numcell)#, searchStep)
         x , y = np.meshgrid(Xrange,Yrange)
         if mode == 'H':
             TargetMap = self.HTgtMap
             ori_space = np.arange(-1,1,searchStep)
-            Pos_search_mask = np.zeros((Map.shape[0], Map.shape[1]))
-            Ori_search_mask = np.zeros((Map.shape[0], Map.shape[1]))
+            Pos_search_mask = np.zeros((x.shape[0], x.shape[1]))
+            Ori_search_mask = np.zeros((x.shape[0], x.shape[1]))
         else:
             TargetMap = self.HTgtMap
             ori_space = np.arange(-5,5,searchStep)
         
             EstDistDrvn = np.sqrt((Est_X_t_1[0] - Est_X_t[0])**2 + (Est_X_t_1[1] - Est_X_t[1])**2 )
-            sq = np.array((x)**2 + (y)**2, dtype=np.float32)
-            sq[np.where(sq ==0)] = np.ceil(EstDistDrvn)
-            Pos_search_mask = (-(1 / (2 * self.Pos_var**2)) * (np.sqrt( np.abs(sq - EstDistDrvn))))#*0.0000001
-            Pos_search_mask[Pos_search_mask > 0.5] = -100
-
-            distv = np.sqrt(x**2 + y**2)
-            distv[distv == 0] = 0.0001
-            yaw = np.deg2rad(Est_X_t[2]  - Est_X_t_1[2])
-            Ori_search_mask = np.arccos((x* np.cos(yaw) + y* np.sin(yaw)) / distv)
-            Ori_search_mask = -1 / (2 * self.ori_var ** 2) * np.square(Ori_search_mask)        
-        
-        Corr_Cost_Fn = np.zeros((len(ori_space),Map.shape[0],Map.shape[0]))
+            sq = np.array((x*searchStep)**2 + (y*searchStep)**2, dtype=np.float32)
+            rrv = np.abs(sq - EstDistDrvn)
+            sq[np.where(sq <EstDistDrvn)] = np.ceil(EstDistDrvn)
+            Pos_search_mask = (-(1 / (2 * self.Pos_var**2)) * (np.sqrt((sq - EstDistDrvn)))**2)
+            Pos_search_mask[rrv>0.25] = -100
+            #Pos_search_mask[Pos_search_mask < -25000] = -10000000
+            if np.abs(Est_X_t[2]  - Est_X_t_1[2]) > 1:
+                distv = np.sqrt(x**2 + y**2)
+                distv[distv == 0] = 0.0001
+                yaw = np.deg2rad(Est_X_t[2]  - Est_X_t_1[2])
+                Ori_search_mask = np.arccos((x* np.cos(yaw) + y* np.sin(yaw)) / distv) 
+                Ori_search_mask = -1 / (2 * self.ori_var ** 2) * np.square(Ori_search_mask)
+            else:
+                Ori_search_mask = np.zeros((x.shape[0], x.shape[1]))
+            # Pos_search_mask = np.zeros((Map.shape[0], Map.shape[1]))
+            # Ori_search_mask = np.zeros((Map.shape[0], Map.shape[1]))
+        Mask = Pos_search_mask + Ori_search_mask
+        #Mask[Mask<-0.6] = 0
+        x = x.reshape((x.shape[0], x.shape[1], 1))
+        y = y.reshape((y.shape[0], y.shape[1], 1))
+        Corr_Cost_Fn = np.zeros((len(ori_space), x.shape[0],x.shape[1]))
         Corr_cost = np.zeros(len(ori_space),)
         theta = np.zeros(len(ori_space),)
+        #T = TargetMap.copy()
+        # TargetMap[np.where(TargetMap<0.32)] = 0
+        plt.figure()
+        Meas = {}
+        Meas['x'], Meas['y']= Meas_Z_t['x'], Meas_Z_t['y']
         for i,ori in enumerate(ori_space):
-            T = TargetMap.copy()
-            Est= [Est_X_t[0],Est_X_t[1] ,Est_X_t[2]+ori]
-            #Meas = self._rotate(Est_X, Meas_Z_t)
+            Est= np.array([Est_X_t[0],Est_X_t[1] ,Est_X_t[2]+ori]).reshape(-1,1)
+            #Meas = self._rotate(Est, Meas, searchStep)
+            Temp_map = sp.ndimage.rotate(MeasMap, ori , reshape=False)
+            Temp_map[Temp_map<0.3] = 0 
+            # m = self.rotate(Est,Meas)
+            Meas['x'], Meas['y']= np.where(Temp_map>0)
+            uniqueRotatedPxPyIdx = np.unique(np.column_stack((Meas['x'], Meas['y'])), axis=0)
+            rotatedPxIdx, rotatedPyIdx = uniqueRotatedPxPyIdx[:, 0], uniqueRotatedPxPyIdx[:, 1]
             #Temp_map, centre_pos,_,_ = self._highResMap(Est, Meas_Z_t)      
-            Temp_map= sp.ndimage.rotate(MeasMap, ori , reshape=False)
+            rotatedPxIdx = rotatedPxIdx.reshape(1, 1, -1) #- self.OG.max_lidar_r
+            rotatedPyIdx = rotatedPyIdx.reshape(1, 1, -1) #-  self.OG.max_lidar_r
+            rotatedPxIdx = (rotatedPxIdx + x +Est[0]).astype(int)
+            rotatedPyIdx = (rotatedPyIdx + y +Est[1]+self.dim).astype(int)
+            convResult = TargetMap[rotatedPxIdx, rotatedPyIdx]
+            convResultSum = np.sum(convResult, axis=2)
+            #Temp_map= sp.ndimage.rotate(MeasMap, ori , reshape=False)
+            #Temp_map[Temp_map<0] = 0
             # self.OG.PlotMap(Temp_map,Est,'Temp_map')     
-            #self.OG.PlotMap(np.rot90(Temp_map,0),Est,'tmp map')
+            # self.OG.PlotMap(np.rot90(Temp_map,0),Est,'tmp map')
             # plt.contour(Pos_search_mask)
             # plt.contour(Ori_search_mask)
-            #plt.show()
-            if Temp_map.shape != Pos_search_mask.shape:
-                Pd_sz = round(Temp_map.shape[0]/2) - round(Pos_search_mask.shape[0]/2)
-                Pos_search_mask = np.pad(Pos_search_mask, (Pd_sz, Pd_sz), 'constant', constant_values=(0,0))
-                Ori_search_mask = np.pad(Ori_search_mask, (Pd_sz, Pd_sz), 'constant', constant_values=(0,0))
+
+            # if Temp_map.shape != Pos_search_mask.shape:
+            #     Pd_sz = round(Temp_map.shape[0]/2) - round(Pos_search_mask.shape[0]/2)
+            #     Pos_search_mask = np.pad(Pos_search_mask, (Pd_sz, Pd_sz), 'constant', constant_values=(0,0))
+            #     Ori_search_mask = np.pad(Ori_search_mask, (Pd_sz, Pd_sz), 'constant', constant_values=(0,0))
                 
-            UncrtnMap = Temp_map + Pos_search_mask +Ori_search_mask
+            UncrtnMap = convResultSum + Mask
+            # UncrtnMap[np.where(UncrtnMap<0.32)] = 0
             theta[i] = Est[2]
-            Corr_cost[i] = norm(np.abs(T - UncrtnMap), ord=1)
-            Corr_Cost_Fn[i,:,:] = T - UncrtnMap
-            
+            diff = UncrtnMap
+            Corr_cost[i] = norm(np.abs(diff))
+            # Corr_Cost_Fn[i,:,:] = diff
+
+            Corr_Cost_Fn[i,:,:] = UncrtnMap
+            plt.contourf(UncrtnMap)
+            plt.pause(0.001)
+            plt.cla()
+
         # Find the best voxel in the Low resolution Map
-        minIdx = np.unravel_index(Corr_Cost_Fn.argmin(), Corr_Cost_Fn.shape)
-        confidence = min(1/Corr_cost)
-        dx, dy, dtheta = Xrange[minIdx[1]] , Yrange[minIdx[2]], ori_space[minIdx[0]]
-        Updt_X_t = [Est_X_t_1[0] + dx, Est_X_t_1[1] + dy, Est_X_t_1[2] + dtheta]
+        minIdx = np.unravel_index(Corr_Cost_Fn.argmax(), Corr_Cost_Fn.shape)
+        confidence = np.sum(np.exp(Corr_Cost_Fn))
+        dx, dy, dtheta = Xrange[minIdx[2]]*searchStep , Yrange[minIdx[1]]*searchStep, ori_space[minIdx[0]]
+        Updt_X_t = [Est_X_t[0] + dx, Est_X_t[1] + dy, Est_X_t[2] + dtheta]
         # print(dx,dy,dtheta)
         return Updt_X_t , confidence
         
-    def _rotate(self, Est_X, Meas):
+    def covertMeasureToXY(self, Est_X_t, rMeasure):
+        rads = np.linspace(Est_X_t[2] - self.OG.FOV / 2, Est_X_t[2]  + self.OG.FOV / 2,num=10)
+        range_idx = rMeasure < self.OG.max_lidar_r
+        rMeasureInRange = rMeasure[range_idx]
+        rads = rads[range_idx]
+        px = Est_X_t[0]  + np.cos(rads) * rMeasureInRange
+        py = Est_X_t[1]  + np.sin(rads) * rMeasureInRange
+        return px, py
+
+    def rotate(self, Est_X, Meas):
+        """
+        Rotate a point counterclockwise by a given angle around a given origin.
+        The angle should be given in radians.
+        """
+        ox, oy = Est_X[0], Est_X[1]
+        px, py = Meas['x'], Meas['y']
+        qx = ox + np.cos(np.deg2rad(Est_X[2])) * (px - ox) - np.sin(np.deg2rad(Est_X[2])) * (py - oy)
+        qy = oy + np.sin(np.deg2rad(Est_X[2])) * (px - ox) + np.cos(np.deg2rad(Est_X[2])) * (py - oy)
+        xIdx = (((qx - (Est_X[0] - self.OG.max_lidar_r)) / 0.5)).astype(int)
+        yIdx = (((qy - (Est_X[1] - self.OG.max_lidar_r)) / 0.5)).astype(int)
+        return qx, qy
+
+    def convertXYToSearchSpaceIdx(self, px, py, beginX, beginY, unitLength):
+        xIdx = (((px - beginX) / unitLength)).astype(int)
+        yIdx = (((py - beginY) / unitLength)).astype(int)
+        return xIdx, yIdx
+
+    def _rotate(self, Est_X, Meas, searchStep):
         RotatedMeas ={}
-        Meas = np.array([Meas['x'], Meas['y']]).reshape(2,-1)
-        Meas = rotate(Est_X['yaw'])@ Meas 
-        RotatedMeas['x'] = Meas[0,:]
-        RotatedMeas['y'] = Meas[1,:]
-        RotatedMeas['Azimuth'] = np.rad2deg(np.arctan2(RotatedMeas['y'] , RotatedMeas['x']))
-        RotatedMeas['Range_XY_plane']= np.hypot(RotatedMeas['x'],RotatedMeas['y'])
+        Meas = np.array([Meas['x'], Meas['y']]).reshape(2,-1) #+ self.OG.max_lidar_r
+        Meas = Est_X[:2] + rotate(Est_X[2])@ Meas# - Est_X[:2])
+        RotatedMeas['x'] = ((Meas[0,:]) )# - Est_X[0] + self.OG.max_lidar_r)/searchStep).astype(int)
+        RotatedMeas['y'] = ((Meas[1,:]) )# - Est_X[1] + self.OG.max_lidar_r)/searchStep).astype(int)
+        ### bedug ####
+        # www = np.zeros((500,500))
+        # Meas = Meas.astype(int)
+        # www[Meas[0,:], Meas[1,:]] = 1
+        # plt.contourf(www)
+        # plt.pause(0.001)
+        # Est = np.array(Est_X) - self.OG.max_lidar_r
+        # Idx = RotatedMeas - Est
+        # RotatedMeas['Azimuth'] = np.rad2deg(np.arctan2(RotatedMeas['y'] , RotatedMeas['x']))
+        # RotatedMeas['Range_XY_plane']= np.hypot(RotatedMeas['x'],RotatedMeas['y'])
         return RotatedMeas
     
     def updateTargetMap(self, Est_X_t, Meas_Z_t):
         self.Est_X_t_1 = Est_X_t
         self.Meas_Z_t_1 = Meas_Z_t  
         ExtractMap,_= self.OG.getExtractMap(Est_X_t)
-        self.HTgtMap =  gaussian_filter(ExtractMap, sigma =1)
-        self.LTgtMap =  gaussian_filter(ExtractMap, sigma =3)
+        self.HTgtMap =  gaussian_filter(self.OG.LO_t_i, sigma =1)
+        self.LTgtMap =  gaussian_filter(ExtractMap, sigma =1)
         
     def _modifyDtype(self, Est_X_t, Meas_Z_t):
         Meas_Z_t = np.array([Meas_Z_t['x'], Meas_Z_t['y']]).reshape(2,-1)
