@@ -102,7 +102,7 @@
 
 
 % Define variables relevant to this thesis
-\lxdef \@logo           {logo}
+\lxdef \@logo           {FHD_logo}
 \newcommand{\thesisLogoPath}[1]{\xdef\@logo{#1}}
 \lxdef \@degree         {BSc (Hons)}
 \newcommand{\thesisDegree}[1]{\xdef\@degree{#1}}

@@ -1,5 +1,5 @@
 
-\textit{Simultaneous Localization and Mapping}, commonly abbrevated as \textit{SLAM} is one of the fundamental task of any mobile robots which helps in building
+\textit{Simultaneous Localization and Mapping}, commonly abbrevated as \textit{SLAM} is one of the fundamental and essential task of any mobile robots which helps in building
 the Map of the environment without the knowledge of actual location and orientaion of the robot. It is one of the key initial step for the development of
 navigation systems for any mobile robot. It is also refered as  the chiken or the egg problem, as it requires precise locaion of the robot in the environment,
 to get an accurate map of the environment,but in order to determine the precise locaion, the map of the environment is required. This complexity has made 
@@ -8,7 +8,7 @@ it harder to find a precise solution, accurate localization and mapping.
 The complex task of localizing and mapping the surrounding has triggered a huge intrest widely in the research filed and it continues to  improve as the 
 technology evolves in both software and hardware. Over the past decade numerous stratergies and methods were developed to solve the SLAM problem. 
 
-A typical SLAM system uses a combination of odometry data, GPS ,IMU for localization and Camera, Lidar or Radar for perception. The information obtained from 
+A typical SLAM system uses a combination of odometry data, GPS ,IMU for localization and Camera, LiDAR or Radar for perception. The information obtained from 
 these sensors are fused to obtain a full estimate on the state of the system.Though technologies evolved 
 in accquiring precise measurement uncertainities and errors are still prevelant due to various factors. Hence designing a solution considering the uncertainities 
 in the measurement is a key to achieve a good estimate of the location and map of the surrounding. Therefore a probabilistic approach to the solution is the key 
@@ -17,14 +17,14 @@ to globally consistent Map.
 The SLAM problem can be classified on various basis.SLAM problem can be broadly classified into \textit{Online SLAM} and \textit{Full SLAM}. 
 In the \textit{Online SLAM} problem,only the current state of the robot is estimated along with Map. In the \textit{Full SLAM} problem, the entire state of the 
 path traversed by the robot is estimated.Based on the setup of environment to the mapped the SLAM system can be braodly classified into \textit{Landmark-based SLAM} and 
-\textit{Grid-based SLAM}. In \textit{Landmark-based SLAM}, the robot knows the locaion of landmarks \textit{a priori}. 
-However in the real world scenario, the robot should establish a correspondence between the expected landmark maeasurement and the actual landmark observed. 
+\textit{Grid-based SLAM}. In \textit{Landmark-based SLAM}, the robot knows the location of landmarks \textit{a priori}. 
+However in the real world scenario, the robot should establish a correspondence between the expected landmark measurement and the actual landmark observed. 
 The data association plays a key role in assigning the measurement to  its corresponding landmark.
 With the known correspondence and known pose of the robot relative to a landmark, the problem reduces to Mapping with known poses. The \textit{Landmark-based SLAM}
 is widely applied in many robotics application for instace, underwater exploration, mapping the underground mines. These SLAM system commonly use Ultrasonic
 sensors, camera for perception and GPS, odometry are used to find the motion of the robot.
 
-In absence of landmarks, \textit{Grid-based SLAM} provides a complete SLAM solution with the help of 2-D or 3-D laser scanners. The observations made by the LiDar are 
+In absence of landmarks, \textit{Grid-based SLAM} provides a complete SLAM solution with the help of 2-D or 3-D laser scanners. The observations made by the LiDAR are 
 converted to a obstacle map also referred to as occupancy map. These observations are also used to correct the pose estimate of the robot. This SLAM approach provides
 a more useful way to map the surroundings as landmarks cannot be installed and observed in many challenging environment. More details on this approach will be provided in the 
 later chapters.
@@ -32,9 +32,15 @@ later chapters.
 Numerous research has been done in the SLAM community. Some of the implementations are made available to the public in ROS. The most common are GMapping and Cartographer
 
 This paper presents insights on Particle Filter based and Graph based solutions to SLAM problem. These approaches are implemented, tested and results are compared thoroughly 
-to provide detailed report on throughput of the algorithms. The algorithm is desgined and the testing is performed on the data set obtained from CARLA. The paper is organized 
-as follows, The detailed literature review is provided on exisiting SLAM algorithms and applications, variants of SLAM in chapter 2. Probabilistic formulation of the SLAM
-problem is derived in chapter 3. Particle Filter based solution to SLAM is discussed and different implementations such as Rao-Blackweillized Particle Filter and GMapping
+to provide detailed report on throughput of the algorithms. The algorithm is desgined and the testing is performed on the data set obtained from CARLA.An autonomous driving car mounted with
+sensors such as LiDAR, GNSS and IMU. The Lidar is the perception system in the simulated car. It is a 360 degrees rotating 3D LiDar with 32 beams with a range of 50meters rotating at a
+ frequency of 20Hz. All the sensors are placed at the same geometrical position on the vehicle and are oriented in the same direction. This avoids transforming
+measurements to different coordinate systems.
+
+ The system is developed for an autonomous driving car trying to create a 2D Map of the simulated environment. Hence from this point Map generally refers to Grid Map, Pose refers to Special Euclidean (SE2) and 
+orientation, unless specified.
+The paper is organized as follows, The detailed literature review is provided on exisiting SLAM algorithms and applications, variants of SLAM in chapter 2. Probabilistic formulation of the SLAM
+problem is derived in chapter 3. Particle Filter based solution to SLAM is discussed and different implementations such as Rao-Blackwellized Particle Filter and GMapping
 algorithm are dicussed in detail and analyzed in chapter 4. Graph based solution to SLAM is dicussed and its various flavors are discussed in detail in chapter 5.
 Comparison and benchmarking of the above methods are performed based on test results and computation is provided in chapter 6. Concluding remark on all the observations 
 made so far in the paper is discussed in chapter 7.
