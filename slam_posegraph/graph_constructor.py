@@ -7,6 +7,8 @@ Created on Tue Jan 12 18:50:29 2021
 # To resolve VS code error
 import sys
 from pathlib import Path
+
+from numpy import compat
 sys.path[0] = str(Path(sys.path[0]).parent)
 
 import numpy as np
@@ -19,7 +21,7 @@ from utils.tools import rotate , translate, Lidar_3D_Preprocessing
 class Graph():
     def __init__(self):
         self.SM = ICP()
-        self.Meas_X_t_1 = {'x':0, 'y':0, 'yaw':0}
+        self.Meas_X_t_1 = np.array([0,0,0])
         self.Meas_Z_t_1 = {}
         Pos = np.zeros((3)) # x,y,yaw,t,id
         self.Node= [{'pos': Pos, 'id':0, 't':0}]
@@ -29,27 +31,30 @@ class Graph():
         self.iteration = 0
         
     def create_graph(self,Meas_X_t, Meas_Z_t):
+        Meas = np.array([Meas_X_t['x'], Meas_X_t['y'], Meas_X_t['yaw'], Meas_X_t['v'], Meas_X_t['acc'], Meas_X_t['steer'], Meas_X_t['t']])
         Meas_Z_t = Lidar_3D_Preprocessing(Meas_Z_t)
-        if self._nodeRequired(Meas_X_t):
+        if self._nodeRequired(Meas):
             self.iteration+=1
-            Pose = np.array([*Meas_X_t.values()][3:6])
+            Pose = Meas[0:3]
             self._addNode(Pose, Meas_X_t['t'])
             
             if self.iteration==1:
                 self.Meas_Z_t_1 = Meas_Z_t.copy()
-                self.Meas_X_t_1 = Meas_X_t.copy()
+                self.Meas_X_t_1 = Meas.copy()
                 return None
     
             newNode = self.Node[-1]
             oldNode = self.Node[-2]
-            self._addObsvEdge(newNode, oldNode, Meas_Z_t)
+            xx1 = self._addOdomEdge(newNode, oldNode, Meas_Z_t)
+            print(xx1)
+            xx2 = self._addObsvEdge(newNode, oldNode, Meas_Z_t)
             self.Meas_Z_t_1 = Meas_Z_t.copy()
-            self.Meas_X_t_1 = Meas_X_t.copy()
+            self.Meas_X_t_1 = Meas.copy()
         
     def _nodeRequired(self,Meas_X_t):
-        dist = np.sqrt((self.Meas_X_t_1['x'] - Meas_X_t['x'])**2 + (self.Meas_X_t_1['y'] - Meas_X_t['y'])**2)
-        yaw = self.Meas_X_t_1['yaw'] - Meas_X_t['yaw']
-        if dist>10 or yaw >3:
+        dist = np.sqrt((self.Meas_X_t_1[0] - Meas_X_t[0])**2 + (self.Meas_X_t_1[1] - Meas_X_t[1])**2)
+        yaw = self.Meas_X_t_1[2] - Meas_X_t[2]
+        if dist>0.1 or yaw >0.1:
             return True
         else:
             return False
@@ -59,13 +64,14 @@ class Graph():
         newNode = {'pos': newPose, 'id':len(self.Node), 't':t}
         self.Node.append(newNode )
     
-    def _addOdomEdge(self,Meas_X_t, IMU_Z_t):
+    def _addOdomEdge(self,newNode, oldNode, Meas_Z_t):
         # Use only if conseqitve measurement - x_i and x_i+1
         # Given a pose the find the new one , MotionModel
-        Meas_X_t['yaw_dot'] = -1*IMU_Z_t['ang_vel']
-        cmdIn = np.array([Meas_X_t['yaw_dot'], Meas_X_t['acc']]).reshape(2,1)
+        Xj_from_Xi =self._inverse_pose_composition(newNode, oldNode)
+        # cmdIn = np.array([Meas_X_t['yaw_dot'], Meas_X_t['acc']]).reshape(2,1)
         #Est_X_t = CTRA_Motion_Model(self.Meas_X_t_1, cmdIn,self.WHlBase, dt=Meas_X_t['t'] - self.Meas_X_t_1['t'])
         #relative pose information
+        return Xj_from_Xi
     
     def _addObsvEdge(self, newNode, oldNode, Meas_Z_t):
         '''
@@ -77,21 +83,22 @@ class Graph():
         # Use for arbitary measurement - x_i and x_j
         # Construct a virtual measurement using ICP, find the relative transformation
         # xi and xj
-        new = newNode['pos']
-        old = oldNode['pos']
-        Est_X_t_1 = {'x': old[0],'y': old[1],'yaw': old[2]}
-        Est_X_t = {'x': new[0],'y': new[1],'yaw': new[2]}
+        newN = newNode['pos']
+        oldN = oldNode['pos']
+        Est_X_t_1 = oldN
+        Est_X_t = newN
         
-        GT, RT = self.SM.match(Meas_Z_t.to_numpy().T, self.Meas_Z_t_1.to_numpy().T, 
+        _, RT = self.SM.match(Meas_Z_t.to_numpy().T, self.Meas_Z_t_1.to_numpy().T, 
                                                       Est_X_t, 
                                                       Est_X_t_1)
         T = RT['T'].flatten()
         H = self._homogenous_CS(T,RT['r'])
         temp = np.append(T,RT['yaw']).reshape(3,1)
-        tempEdge = {'con': temp, 'info_mat':np.eye(3,3), 'node_id':[newNode['id'], oldNode['id']]}
-        Er = self._chi2(newNode, oldNode, Meas_Z_t.to_numpy().T, RT)
-        tempEdge.update(Er)
-        self.Edge.append(tempEdge)
+        return temp
+        # tempEdge = {'con': temp, 'info_mat':np.eye(3,3), 'node_id':[newNode['id'], oldNode['id']]}
+        # Er = self._chi2(newNode, oldNode, Meas_Z_t.to_numpy().T, RT)
+        # tempEdge.update(Er)
+        # self.Edge.append(tempEdge)
     
     def _chi2(self, newNode, oldNode, Meas_Z_t, RT):
         error = self._errorfunc(newNode, oldNode, Meas_Z_t, RT)
@@ -123,11 +130,12 @@ class Graph():
         return H
     
     def _inverse_pose_composition(self,Pose1, Pose2):
-        TransMatrx = np.zeros((3,1))
-        TransMatrx[0,0] = (Pose1[0] - Pose2[0]) #*np.cos(np.deg2rad(Pose2['yaw']))
-        TransMatrx[1,0] = (Pose1[1] - Pose2[1]) # *np.sin(np.deg2rad(Pose2['yaw']))
-        TransMatrx[2,0] =  Pose1[2] - Pose2[2]
-        return TransMatrx
+        diff = (Pose1['pos'][:2] - Pose2['pos'][:2]).reshape(2,1)
+        R = rotate(Pose2['pos'][2])
+        composed_T = R.T @ diff
+        composed_R = Pose1['pos'][2] - Pose2['pos'][2]
+        composed_pose = np.append(composed_T, composed_R)
+        return composed_pose
     
     def Node_id_pose(self,Idx):
         for N in self.Node:
@@ -149,4 +157,6 @@ class Graph():
         
 if __name__ == '__main__':
     Gp = Graph()
+    Meas_Z_t = {}
+    Meas_X_t = {}
     Gp.create_graph(Meas_X_t , Meas_Z_t )

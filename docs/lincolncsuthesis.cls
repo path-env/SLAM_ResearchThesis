@@ -98,21 +98,21 @@
 \RequirePackage{fancyhdr}
 \RequirePackage{lmodern}
 % -----------------
-\RequirePackage{minted}
+
 
 
 % Define variables relevant to this thesis
 \lxdef \@logo           {FHD_logo}
 \newcommand{\thesisLogoPath}[1]{\xdef\@logo{#1}}
-\lxdef \@degree         {BSc (Hons)}
+\lxdef \@degree         {M.Eng}
 \newcommand{\thesisDegree}[1]{\xdef\@degree{#1}}
-\lxdef \@programme      {Computer Science}
+\lxdef \@programme      {Embedded systems for Mechatronics}
 \newcommand{\thesisProgramme}[1]{\xdef\@programme{#1}}
-\lxdef \@schoolname     {School of Computer Science}
+\lxdef \@schoolname     {School of Inforamtics}
 \newcommand{\thesisSchool}[1]{\xdef\@schoolname{#1}}
-\lxdef \@universityname {University of Lincoln}
+\lxdef \@universityname {Dortmund University of Applied Sciences and Arts}
 \newcommand{\thesisUniversity}[1]{\xdef\@universityname{#1}}
-\lxdef \@studentnumber {ABC12345678}
+\lxdef \@studentnumber {7206937}
 \newcommand{\thesisStudentNumber}[1]{\xdef\@studentnumber{#1}}
 \lxdef \@headercontents {Assessment Item}
 \newcommand{\thesisHeaderContents}[1]{\xdef\@headercontents{#1}}

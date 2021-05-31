@@ -52,3 +52,7 @@ def normalize(arr):
 
 def softmax(arr):
     return np.exp(arr)/ np.sum(np.exp(arr))
+
+def negativeposecomposition(pose1, pose2):
+    diff = pose2 - pose1
+    return rotate(pose1[2]) @ diff

@@ -1,8 +1,24 @@
 \section{Introduction}
-
+    Paramtetric filters such as EKF work on the assumption that posterior density is Gaussian paramterized by mean and covariance. In cases where the 
+true density is non Gaussian, these filters fail to describe the actual posterior.In many practical applications, linear and gaussian assumptions would
+not hold true, hence better approaches are required to describe the posterior density. Particle Filters are non paramteric filters which can model 
+any posteriror distribution as it does not assume gaussian requiring mean and covariance. This chapter provides in-depth view of Particle Filters and
+its application to SLAM.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Particle Filter}
+Particle Filters manage to model the required distribution by use of samples sampled from the distribution. However no a-prior information about the 
+distribution is known. Hence a proposal distribution is used as a inital guess to sample particles from it and weigh it against the target distribution.
+This process is repeated until the proposal distribution matches the target distribution and it requires resampling from the proposal distribution as
+required.The samples which weigh more are more likely to describe the target distribution. This leads to further discussion on what could be the guess 
+on proposal distribution, how is it sampled and how is it resampled.
+
 \subsection{Sample}
+Sampling in particle filters in based on Sequential Importance Sampling principle and Sequential Monte-Carlo methods. Samples in genral are generated in 
+random from a proposal distribution. The more samples we are able to sample , the better is the approximation of the target distribution. With larger 
+number of samples, Monte-Carlo methods provide equivalent representation of the target distribution and Sequential Importance Sampling approaches optimal
+Bayes estimate \cite{S.Arulampalam}.
+\par
+
 \subsection{Import weighting}
 \subsection{Resample}
 
