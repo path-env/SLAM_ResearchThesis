@@ -6,7 +6,7 @@ Created on Fri Nov 27 17:02:41 2020
 """
 import numpy as np
 import logging
-
+import concurrent
 from utils.tools import Lidar_3D_Preprocessing
 from slam_particlefilter.particle import Particle
 from utils.tools import softmax, normalize
@@ -29,8 +29,8 @@ class Gmapping():
 
     def genrate_particles(self,Meas_X_t, Meas_Z_t):
         self.OG.Update(Meas_X_t, Meas_Z_t,True)
-        # self.SM = ICP() #GO_ICP(Meas_Z_t, Meas_X_t)
-        self.SM = RTCSM(self.OG,Meas_X_t, Meas_Z_t)
+        self.SM = ICP() #GO_ICP(Meas_Z_t, Meas_X_t)
+        # self.SM = RTCSM(self.OG,Meas_X_t, Meas_Z_t)
         self.particleList = [Particle(Meas_X_t, Meas_Z_t, self.OG, self.SM) for _ in range(self.particleCnt)]
 
     def main(self, Meas_X_t, Meas_Z_t, IMU_Z_t):
@@ -41,8 +41,9 @@ class Gmapping():
         part_w = []  
         for P in self.particleList:
             P.id = len(part_w)
+            print(f"Particle {P.id} is process")
             st_prime = P.motion_prediction(cmdIn, dt)
-            GT = P.scan_match(st_prime, Meas_Z_t, self.Meas_Z_t_1)
+            GT,GT_Lst = P.scan_match(st_prime, Meas_Z_t, self.Meas_Z_t_1)
             # print(GT['error'])s
             if GT['error'] > 5:
                 #compute st, w
@@ -50,40 +51,41 @@ class Gmapping():
                 P.w = P.w * 1/GT['error']
             else:
                 # compute the Gaussian proposal
-                SM_st = GT['T'].flatten().tolist()
-                SM_st.append(GT['yaw'].tolist())
-                SM_st.append(st_prime[3])
+                SM_st = GT_Lst
+                SM_st = np.append(SM_st, st_prime[3])
                 diff = SM_st - st_prime 
                 #st_prime = np.array(SM_st)
-                print(diff)
+                # print(diff)
                 # cov = (diff.reshape(4,1)) @ diff.reshape(1,4)
                 # sample around the mode
                 sample_cnt = 10
-                Gaus_sampl = st_prime[0:4] + self.noise_matrix(sample_cnt, P.sigma)
+                Gaus_sampl = SM_st[0:4] + self.noise_matrix(sample_cnt, P.sigma)
                 # reinitialize
                 lykly = []
                 P.mu = np.array([0.,0.,0.,0.])
                 P.sigma = np.array([0.,0.,0.,0.])
                 P.norm = 0.
-
+                mu_mat = np.zeros((Gaus_sampl.shape[0], 4))
+                sig_mat = np.zeros((Gaus_sampl.shape[0],0))
+                cov_mat = np.zeros((Gaus_sampl.shape[0],3))
                 for j in range(Gaus_sampl.shape[0]):
-                    GT = P.scan_match(Gaus_sampl[j], Meas_Z_t, self.Meas_Z_t_1)
+                    GT,GT_Lst = P.scan_match(Gaus_sampl[j], Meas_Z_t, self.Meas_Z_t_1)
+                    mu_mat[j,:] = Gaus_sampl[j]
                     lykly.append((GT['error']))
-
-                #lykly = np.array(lykly) - max(lykly)
-                if np.var(lykly)>=1:
-                    lykly = normalize(lykly)
-                lykly = softmax(lykly)
-                while np.var(lykly)>= 0.1:
-                    lykly = softmax(lykly)
-                # Compute Mean
+                lykly = softmax(1/np.array(lykly))
+                mu_mat = mu_mat * lykly
                 P.norm = lykly.sum()
-                temp = Gaus_sampl.T * lykly
-                P.mu = temp.T
-                P.mu = np.sum(P.mu, axis =0) / P.norm
+                # P.norm = np.sum(sig_mat,axis =0)
+                P.mu = np.sum(mu_mat,axis =0)/P.norm
+                
+                for j in range(Gaus_sampl.shape[0]):
+                    diff = Gaus_sampl[j] - P.mu
+                    cov_mat[j,:] = (diff.T @ diff)*lykly[j]
+                
+                P.sigma = np.sum(cov_mat, axis=0)/P.norm
 
                 # Compute Variance
-                P.sigma = np.cov(Gaus_sampl.T, aweights=lykly)
+                P.sigma = np.cov(Gaus_sampl.T, aweights=lykly.flatten())
                 #Sample Pose from Guas Approx
                 temp = P.mu + np.random.randn()*P.sigma
                 P.st = temp.mean(axis=0)
@@ -115,7 +117,7 @@ class Gmapping():
         self.prev_scan_update = mu
         self.aly._set_trajectory(mu)
         self.OG.Update(mu, Meas_Z_t,True)
-        self.SM.updateTargetMap(mu, Meas_Z_t)
+        # self.SM.updateTargetMap(mu, Meas_Z_t)
         
     def _random_resample(self, part_w):
         # Sample with replacement w.r.t weights
@@ -126,10 +128,11 @@ class Gmapping():
             P.w = 1/self.particleCnt
 
     def run(self,Meas_X_t, Meas_Z_t, GPS_Z_t, IMU_Z_t):
-            # try:       
+            # try:    
+        print(f"Time - {Meas_X_t['t']}sec")   
         if 'Range_XY_plane' not in Meas_Z_t.keys():
             Meas_Z_t = Lidar_3D_Preprocessing(Meas_Z_t)
-        Meas = [Meas_X_t['x'], Meas_X_t['y'], Meas_X_t['yaw'], Meas_X_t['v'], Meas_X_t['acc'], Meas_X_t['steer'], Meas_X_t['t']]
+        Meas = np.array([Meas_X_t['x'], Meas_X_t['y'], Meas_X_t['yaw'], Meas_X_t['v'], Meas_X_t['acc'], Meas_X_t['steer'], Meas_X_t['t']])
         if self.iteration == 0:
             self.genrate_particles(Meas,Meas_Z_t)
             self.Meas_X_t_1 = Meas.copy()
