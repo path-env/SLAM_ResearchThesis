@@ -13,7 +13,7 @@ class Analyze:
     def __init__(self, title):
         self.fig, self.axs = plt.subplots(2,3, figsize=(15,10))
         self.fig.suptitle(title, fontsize=16)
-        self.predict_x,self.predict_y,self.predict_yaw = [], [], []
+        self.predict_x,self.predict_y,self.predict_yaw, self.predict_v = [], [], [], []
         self.corrected_x,self.corrected_y,self.corrected_yaw, self.corrected_v = [], [], [], []
         self.True_x,self.True_y, self.True_yaw, self.True_v, self.True_acc = [], [], [],[], []
         self.odom_x, self.odom_y, self.odom_yaw = [],[],[]
@@ -33,10 +33,11 @@ class Analyze:
         self.steer.append(np.rad2deg(Meas_X_t['steer']))
         self.time.append(Meas_X_t['t'])
         
-    def _set_trajectory(self,Est_X_t):
-        # self.predict_x.append((self.Particle_DFrame['x'].to_numpy()))
-        # self.predict_y.append((self.Particle_DFrame['y'].to_numpy()))
-        # self.predict_yaw.append((self.Particle_DFrame['yaw'].to_numpy()))
+    def _set_trajectory(self,Est_X_t,st_prime):
+        self.predict_x.append(st_prime[0])
+        self.predict_y.append(st_prime[1])
+        self.predict_yaw.append(st_prime[2])
+        self.predict_v.append(st_prime[3])
         self.corrected_x.append(Est_X_t[0])
         self.corrected_y.append(Est_X_t[1])
         self.corrected_yaw.append(Est_X_t[2])
@@ -47,27 +48,28 @@ class Analyze:
         self.axs[0,0].plot(self.True_x,self.True_y,'g.', markersize=1)
         
         #prediction
-        #self.axs[0,1].scatter(self.predict_x,self.predict_y,'r.' ,label='predicted', markersize=1)
+        self.axs[0,1].plot(self.predict_x,self.predict_y,'b.' ,label='predicted', markersize=1)
         self.axs[0,1].plot(self.odom_x, self.odom_y, 'k*', label='Odom', markersize=1)
         #correction
         self.axs[0,1].plot(self.corrected_x, self.corrected_y, 'r+',label='corrected', markersize=1)
 
-        # Orientation Comparison
-        self.axs[1,0].plot(self.steer,'b.',label='steer', markersize=1)
-        
+        # steer
+        self.axs[1,0].plot(self.steer,'g.',label='steer', markersize=1)
+        #Orientation
         self.axs[1,1].plot(self.True_yaw,'g.',label='GT', markersize=1)        
-        #self.axs[1,1].scatter(self.predict_yaw,'r.' ,label='predicted', markersize=1)
+        self.axs[1,1].plot(self.predict_yaw,'b.' ,label='predicted', markersize=1)
         self.axs[1,1].plot(self.odom_yaw, 'k*', label='Odom', markersize=1)
         self.axs[1,1].plot(self.corrected_yaw,'r+',label='corrected', markersize=1)
         
         #Vel
         self.axs[0,2].plot(self.True_v,'g.',label='GT', markersize=1)  
         self.axs[0,2].plot(self.corrected_v,'r+',label='corrected', markersize=1)
+        self.axs[0,2].plot(self.predict_v,'b.' ,label='predicted', markersize=1)
         
         #acc
         self.axs[1,2].plot(self.True_acc,'g.',label='GT', markersize=1)  
         plt.pause(0.0001)
-        #plt.savefig('./results/GT.png')
+        # plt.savefig('./results/GT_2D.png')
         plt.show()
 
     def _init_plots(self):

@@ -56,3 +56,9 @@ def softmax(arr):
 def negativeposecomposition(pose1, pose2):
     diff = pose2 - pose1
     return rotate(pose1[2]) @ diff
+
+def TransMatrix(T, orientation):
+    H = np.diag([1.,1.,1.])
+    H[:2,:2] = rotate(orientation)
+    H[:2,2] = T
+    return H

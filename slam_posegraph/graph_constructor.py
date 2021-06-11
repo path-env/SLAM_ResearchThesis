@@ -45,9 +45,9 @@ class Graph():
     
             newNode = self.Node[-1]
             oldNode = self.Node[-2]
-            xx1 = self._addOdomEdge(newNode, oldNode, Meas_Z_t)
+            xx1 = self._addOdomEdge(newNode, oldNode, Meas_Z_t) #Z_hat
             print(xx1)
-            xx2 = self._addObsvEdge(newNode, oldNode, Meas_Z_t)
+            xx2 = self._addObsvEdge(newNode, oldNode, Meas_Z_t) # Z
             self.Meas_Z_t_1 = Meas_Z_t.copy()
             self.Meas_X_t_1 = Meas.copy()
         
@@ -66,11 +66,8 @@ class Graph():
     
     def _addOdomEdge(self,newNode, oldNode, Meas_Z_t):
         # Use only if conseqitve measurement - x_i and x_i+1
-        # Given a pose the find the new one , MotionModel
-        Xj_from_Xi =self._inverse_pose_composition(newNode, oldNode)
-        # cmdIn = np.array([Meas_X_t['yaw_dot'], Meas_X_t['acc']]).reshape(2,1)
-        #Est_X_t = CTRA_Motion_Model(self.Meas_X_t_1, cmdIn,self.WHlBase, dt=Meas_X_t['t'] - self.Meas_X_t_1['t'])
         #relative pose information
+        Xj_from_Xi =self._inverse_pose_composition(newNode, oldNode)
         return Xj_from_Xi
     
     def _addObsvEdge(self, newNode, oldNode, Meas_Z_t):
@@ -88,12 +85,12 @@ class Graph():
         Est_X_t_1 = oldN
         Est_X_t = newN
         
-        _, RT = self.SM.match(Meas_Z_t.to_numpy().T, self.Meas_Z_t_1.to_numpy().T, 
+        GT, GT_Lst = self.SM.match_LS(Meas_Z_t.to_numpy().T, self.Meas_Z_t_1.to_numpy().T, 
                                                       Est_X_t, 
                                                       Est_X_t_1)
-        T = RT['T'].flatten()
-        H = self._homogenous_CS(T,RT['r'])
-        temp = np.append(T,RT['yaw']).reshape(3,1)
+        T = GT['T'].flatten()
+        H = self._homogenous_CS(T,GT['r'])
+        temp = GT_Lst -Est_X_t_1
         return temp
         # tempEdge = {'con': temp, 'info_mat':np.eye(3,3), 'node_id':[newNode['id'], oldNode['id']]}
         # Er = self._chi2(newNode, oldNode, Meas_Z_t.to_numpy().T, RT)

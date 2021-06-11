@@ -30,7 +30,7 @@ class Map():
         self.Grid_resol = 1 # a x a m cell
         self.Angular_resol = np.rad2deg(np.arctan( self.Grid_resol/ self.max_lidar_r))
         self.Pose_t_1 = [0,0,0]
-        
+        self.MapIdx_G = np.array([[],[]])
         if self.MapMode ==1: #Local Map
             self.Xlim_start = 0
             self.Xlim_end = (2*self.max_lidar_r + 91)
@@ -107,7 +107,7 @@ class Map():
                     self.Local_Map[row_ind, col_ind] = self.l_free
         #Plotting
         if PltEnable == True:
-           self.PlotMap(self.Local_Map, Pose_X_t,'LocalMap')
+        #    self.PlotMap(self.Local_Map, Pose_X_t,'LocalMap')
            pass
         #self.Local_Map[Limits, Limits] = 2   #Location of the Lidar
         return self.Local_Map
@@ -164,19 +164,19 @@ class Map():
     def Lidar2MapFrame(self, Local_Map , Pose_X_t):
         dim = self.max_lidar_r+self.Roffset
         GlobalMap = np.zeros((self.Long_Length, self.Lat_Width))
-        (y,x) = np.where(Local_Map > 0)
-        Pos = np.array([Pose_X_t[1], Pose_X_t[0]]).reshape(2,1)
-        Pos = np.ceil(Pos).astype(np.int32)
-        Meas = np.vstack((y,x))-dim
+        (x,y) = np.where(Local_Map > 0)
+        Pos = np.array([Pose_X_t[0], Pose_X_t[1]]).reshape(2,1)
+        # Pos = np.ceil(Pos).astype(np.int32)
+        Meas = np.vstack((x,y))-dim
         # Offst = np.array([self.Long_Length, self.Lat_Width]).reshape(2,1)/2
         # Offst = Offst.astype(np.int32)
-        MapIdx = rotate(-Pose_X_t[2]) @ Meas +Pos +dim
-        MapIdx = np.ceil(MapIdx).astype(np.int32) 
-        GlobalMap[MapIdx[1], MapIdx[0]+100]= Local_Map[y,x]
+        MapIdx = rotate(Pose_X_t[2]) @ Meas +Pos +dim
+        # self.MapIdx_G = np.unique(np.concatenate((self.MapIdx_G,MapIdx-dim), axis=1),axis=1) # Grabs all theoccupied cells in the GlobalMap        
+        self.MapIdx_G = np.unique(MapIdx-dim,axis=1) # Stores the coords of only the last identified occupied 
+        MapIdx = np.ceil(MapIdx).astype(np.int32)
+        GlobalMap[MapIdx[0], MapIdx[1]+100]= Local_Map[x,y]
         # self.PlotMap(GlobalMap,Pose_X_t,'Transformed to MAP Frame')
         self.Pose_t_1 = Pose_X_t
-        # print(MapIdx)
-        # print(Meas)
         return GlobalMap
 
     def PlotMap(self,Map,Pose_X_t,title):
@@ -187,7 +187,7 @@ class Map():
         plt.ylim(0,self.Lat_Width)
         plt.xlim(0,self.Long_Length)
         self.ax.add_patch(Veh)                
-        plt.imshow(probMap.T, cmap='Greys')
+        plt.imshow(probMap, cmap='Greys')
         #plt.savefig('/Local/Local{title}.png')        
         plt.pause(0.001)
         #plt.matshow(probMap.T)
@@ -254,11 +254,6 @@ class Map():
         self.Grid_Pos[1,:,:] =  MGrid[1]
         self.LO_t = np.zeros(( self.Long_Length,self.Lat_Width))
 
-    def convertRealXYToMapIdx(self, x, y):
-        xIdx = (np.rint((x - self.mapXLim[0]) / self.unitGridSize)).astype(int)
-        yIdx = (np.rint((y - self.mapYLim[0]) / self.unitGridSize)).astype(int)
-        return xIdx, yIdx
-
     def UpdatePreviousInfo(self,Centre_in_robotF):
     	Occ_coord= np.where(self.Local_Map>0)
     	Vals = self.Local_Map[Occ_coord]
@@ -280,7 +275,7 @@ class Map():
         x1, x2 = MapIdx[0]-dim+100 , MapIdx[0]+dim+100
         y1, y2 = MapIdx[1]-dim , MapIdx[1]+dim
         extract_map = self.LO_t_i[y1:y2, x1:x2]
-        return extract_map.T, centre_pos 
+        return extract_map, centre_pos 
 
     def getScanMap(self,Meas_Z_t,Pose_X_t):
         (x,y,orientation) = (Pose_X_t[0] ,Pose_X_t[1] ,Pose_X_t[2])
@@ -317,3 +312,5 @@ class Map():
         #self.PlotMap(ScanMap, Pose_X_t,'LocalMap')
         return ScanMap,c_pos, dist_grid, theta_grid
         
+    def getOccIndies_G(self):
+        return self.MapIdx_G

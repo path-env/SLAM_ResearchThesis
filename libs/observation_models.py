@@ -7,8 +7,11 @@ Created on Fri Dec  4 19:42:48 2020
 import numpy as np
 import pandas as pd
 import sympy as sp
+from sklearn.neighbors import NearestNeighbors
 
+from utils.tools import rotate
 from libs.remove_ground_plane import RANSAC,Zbased
+
 ##################################### Measurement Models ################################################
     
 def Lidar_Observation_Model(Est_X_t , Meas_Z_t ):
@@ -50,9 +53,21 @@ def CoordinateTransform_t_1(Meas_Z_t,Meas_X_t,Meas_X_t_1):
     trans_Z_t['z'] = Meas_Z_t['z'].to_numpy()
     return trans_Z_t    
 
-def Likelihood_Field_Observation_Model(Meas_Z_t , Est_X_t , Map_X_t_1,Meas_X_t_1,Map_obj,LidarPose_X_t = {'x':0,'y':0 , 'yaw':0} ,z_hit = 0.5 ,sigma= 1, z_random=0.3 , z_max= 0.2):
+def Likelihood_Field_Observation_Model(Meas_Z_t , Est_X_t ,MapIdx_G ,z_hit = 0.5 ,sigma= 0.2, z_random=0.05 , z_max= 0.05):
     likly = 1
-   
+    range = Meas_Z_t[4,:]
+    idx= np.where(range < 50)[0]
+    Meas_Z_t = Meas_Z_t[:2,idx]
+    Meas_Z_t_G = rotate(Est_X_t[2])@ Meas_Z_t + Est_X_t[:2].reshape(2,-1)
+
+    # Extract the Map Indices
+    # Map = Map_obj.getOccIndies_G()
+    nbrs = NearestNeighbors(n_neighbors=1, algorithm='auto').fit(MapIdx_G.T)
+    dist, Colidx = nbrs.kneighbors(Meas_Z_t_G.T)
+    # print(dist.mean())
+    for d in dist:
+        likly = likly*( z_hit*Prob_Gaus_dist(d,sigma**2) + (z_random/z_max))   
+    return likly
     '''    
     #Sensor_Pose_inHost = np.array([[LidarPose_X_t['x']] , [ LidarPose_X_t['y']]]).T
     # from sensors.json file
@@ -67,7 +82,7 @@ def Likelihood_Field_Observation_Model(Meas_Z_t , Est_X_t , Map_X_t_1,Meas_X_t_1
     # MeasGlobal_Z_t_Vec = Est_X_t_nparr[:2].reshape(2,1) + (Rot_Matrix @ Sensor_Pose_inHost).reshape(2,-1) + Range_Z * Meas_loc_Vector
     # Closest_x , Closest_y = np.argmin(np.abs(np.subtract(MeasGlobal_Z_t_Vec,Map_X_t_1))) 
     # dist = ( (MeasGlobal_Z_t_Vec[0] - Closest_x )**2 ) + ((MeasGlobal_Z_t_Vec[1] - Closest_y )**2 )
-'''
+
  
     trans_Z_t = CoordinateTransform_t_1(Meas_Z_t,Est_X_t,Meas_X_t_1)
     if 'Range_XY_plane' not in trans_Z_t.keys():
@@ -99,7 +114,7 @@ def Likelihood_Field_Observation_Model(Meas_Z_t , Est_X_t , Map_X_t_1,Meas_X_t_1
         temp = ( z_hit*Prob_Gaus_dist(dist,sigma) + (z_random/z_max))
         likly *=temp
     return likly
-
+    '''
 def Prob_Gaus_dist(MeanCentered , Var):
     return ((np.sqrt(2*np.pi*Var)**-1) *np.exp( (-0.5* MeanCentered**2)/Var))
 

@@ -105,8 +105,8 @@ def CTRA_Motion_Model(Est, cmdIn,dt,y_dot_tolerance=1):
     #Params
     a1 = 0.05   #m/m
     a2 = 0.01  #m/deg
-    a3 = 1      #deg/m
-    a4 = 1   #deg/deg
+    a3 = 0.1      #deg/m
+    a4 = 0.1   #deg/deg
     
     # Compute Next state
     Est_X_k = {}
@@ -115,8 +115,8 @@ def CTRA_Motion_Model(Est, cmdIn,dt,y_dot_tolerance=1):
     #del_v = cmdIn[1]-cmdIn[2]*dt
     Est_X_k['v'] = Meas_X_k_1['v'] + del_v - Sample_Gaus_dist(1*dt**2/2)   
     del_yaw =  (cmdIn[0]) *dt
-    Est_X_k['yaw'] =  np.deg2rad(Meas_X_k_1['yaw']) + del_yaw
     Meas_X_k_1['yaw'] = np.deg2rad(Meas_X_k_1['yaw'])
+    Est_X_k['yaw'] =  Meas_X_k_1['yaw'] + del_yaw
     if cmdIn[1] > 1:
         print('Alert')
     if  cmdIn[0] > y_dot_tolerance:
@@ -134,7 +134,7 @@ def CTRA_Motion_Model(Est, cmdIn,dt,y_dot_tolerance=1):
         
     Est_X_k['x'] =      Meas_X_k_1['x'] + del_x -  Sample_Gaus_dist( a1* cmdIn[0]**2  + a2*cmdIn[1]**2 )   
     Est_X_k['y'] =      Meas_X_k_1['y'] + del_y - Sample_Gaus_dist( a1* cmdIn[0]**2  + a2*cmdIn[1]**2 )
-    Est_X_k['yaw'] =    np.rad2deg(Est_X_k['yaw']) -Sample_Gaus_dist( a3* cmdIn[0]**2  + a4*cmdIn[1]**2 )
+    Est_X_k['yaw'] =    np.rad2deg(Est_X_k['yaw']) #-Sample_Gaus_dist( a3* cmdIn[0]**2  + a4*cmdIn[1]**2 )
     Est_X_k['acc'] =    cmdIn[1]
 
     # Compute Probability of being in the state with the applied cmdIn

@@ -15,10 +15,10 @@ sys.path.append(os.path.abspath(os.path.join('..', 'SLAM_ResearchThesis')))
 import numpy as np
 import rosbag
 from libs.slam_analyzer import Analyze as aly
-# from slam_posegraph.graph_constructor import Graph
-# from slam_posegraph.graph_optimizer import ManifoldOptimizer
-from slam_particlefilter.particle_filter import RBPF_SLAM
-from slam_particlefilter.gmapping import Gmapping
+from slam_posegraph.graph_constructor import Graph
+from slam_posegraph.graph_optimizer import ManifoldOptimizer
+# from slam_particlefilter.particle_filter import RBPF_SLAM
+# from slam_particlefilter.gmapping import Gmapping
 from squaternion import Quaternion
 
 import csv
@@ -28,18 +28,19 @@ def ROS_bag_run():
     if sys.platform =='linux':
         # bag = rosbag.Bag('/media/mangaldeep/HDD3/DataSets/Bagfiles/CARLA_Autopilot_ROS_01_02_2021_Town3.bag') #508 - 620
         # bag = rosbag.Bag('/media/mangaldeep/HDD3/DataSets/Bagfiles/CARLA_Autopilot_ROS_08_02_2021_Town4.bag')
-        bag = rosbag.Bag('/media/mangaldeep/HDD3/DataSets/Bagfiles/CARLA_Autopilot_ROS_08_02_2021.bag')
+        bag = rosbag.Bag('/media/mangaldeep/HDD3/DataSets/Bagfiles/Carla_2DLidar_Town3.bag')
+        # bag = rosbag.Bag('/media/mangaldeep/HDD3/DataSets/Bagfiles/CARLA_Autopilot_ROS_08_02_2021.bag')
         # bag = rosbag.Bag('/media/mangaldeep/HDD3/DataSets/Bagfiles/CARLA_Autopilot_ROS_12_03_2021_Town3.bag') # lidar freq  1 HZ , scanmatching doesnt work
     else:
         bag = rosbag.Bag('G:/DataSets/BagFiles/CARLA_Autopilot_ROS.bag') #508 - 620
 
-    plotter = aly('GMapping')
-    slam_obj = Gmapping(plotter, 10)
+    plotter = aly('Pose Graph')
+    # slam_obj = Gmapping(plotter, 10)
     #slam_obj = RBPF_SLAM(plotter, 10)
     logger = logging.getLogger('ROS_Decode')
 
-    #slam_obj = Graph()
-    #slam_opt_obj = ManifoldOptimizer()
+    slam_obj = Graph()
+    slam_opt_obj = ManifoldOptimizer()
 
     #Topics in bag
     #Topics =  [*bag.get_type_and_topic_info()[1]]
@@ -133,11 +134,11 @@ def ROS_bag_run():
                 #GPS_Z_t['long'], GPS_Z_t['alt'], IMU_Z_t['roll'], IMU_Z_t['pitch'],  IMU_Z_t['yaw'] ,IMU_Z_t['ang_vel'] ])
             #if (Meas_X_t['v']>0.01 or Meas_X_t['v'] <-0.01):
             ##  Graph Based    
-            #slam_obj.create_graph(Meas_X_t , Meas_Z_t )
+            slam_obj.create_graph(Meas_X_t , Meas_Z_t )
 
             ## Particle Based
             # print(Meas_X_t['t'], Meas_Z_t['t'], GPS_Z_t['t'], IMU_Z_t['t'])
-            slam_obj.run(Meas_X_t,Meas_Z_t, GPS_Z_t,IMU_Z_t)
+            # slam_obj.run(Meas_X_t,Meas_Z_t, GPS_Z_t,IMU_Z_t)
 
             #slam_obj.run(Meas_X_t_1,Meas_X_t,Meas_Z_t)
 

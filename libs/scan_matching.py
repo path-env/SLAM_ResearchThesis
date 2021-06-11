@@ -5,6 +5,7 @@ Created on Fri Dec 25 09:59:08 2020
 @author: MangalDeep
 """
 import numpy as np
+import sys
 from numpy.core.fromnumeric import shape
 from numpy.lib.stride_tricks import _maybe_view_as_subclass
 import pandas as pd
@@ -16,7 +17,7 @@ import logging
 from sklearn.neighbors import NearestNeighbors
 from sksurgerygoicppython import GoICP, POINT3D, ROTNODE, TRANSNODE
 
-from utils.tools import rotate , translate, normalize, softmax
+from utils.tools import rotate , translate, normalize, softmax, TransMatrix
 
 def CoordTrans(Meas,X_t, X_t_1,TargetFrame='G'):
     if TargetFrame == 'G':
@@ -367,19 +368,20 @@ class ICP():
         # error = np.sum(np.hypot(X_t_1MC , Y_t_1MC)**2 - 2*np.sum(s))
         # x_o = (R.T @ p_mean) - (R.T @ T )
         # error = np.sum(np.sqrt(np.square(q_t - R@(Meas_Z_t_1 - x_o))),  axis=1)
-        error = np.sum(np.sqrt(np.square(q_t - R@q_t_1)),axis=1)
-        orientation = np.rad2deg(np.arctan2(R[1,0],R[0,0]))
+        error = np.sum(np.sqrt(np.square(q_t_1 - R@q_t)),axis=1)
+        orientation = np.rad2deg(np.arctan2(R[0,1],R[1,1]))
         if np.any(np.isnan(T)):
             print('nan')
         return R,T,orientation,error, H, u, s, vh,p_1mean,p_mean
     
-    def correspondence(self,Meas_Z_t, Meas_Z_t_1):
+    def correspondence(self,Meas_Z_t, Meas_Z_t_1, Est_diff):
+        tolerance = np.hypot(Est_diff[0], Est_diff[1])
         nbrs = NearestNeighbors(n_neighbors=1, algorithm='auto').fit(Meas_Z_t.T)
         dist, Colidx = nbrs.kneighbors(Meas_Z_t_1.T)
         # if np.mean(dist)>5:
         #     print(np.mean(dist)
         # print(f"distance mean:{dist.mean()}, max:{dist.max()}")
-        indices,_ = np.where(dist<= max(np.mean(dist),0.5))
+        indices,_ = np.where(dist<= 0.1) # ICP LS = 0.1
         Colidx = Colidx[indices].flatten() #Use the closest point
         dist = dist[indices].flatten()
         weights = np.array([1])
@@ -420,7 +422,7 @@ class ICP():
         loop_cnt = 0
         actMeas = Meas_Z_t_1.copy()
         # Transform to the estimated pose
-        # Meas_Z_t = rotate(Est_X_t[2]) @ Meas_Z_t + Est_X_t[0:2].reshape(2,-1)
+        Meas_Z_t = rotate(Est_X_t[2]) @ Meas_Z_t + Est_X_t[0:2].reshape(2,-1)
         # Meas_Z_t_1 = rotate(Est_X_t_1[2]) @ Meas_Z_t_1 + Est_X_t_1[0:2].reshape(2,-1)
         #Transform to the estimated relative pose
         # diff= Est_X_t_1 - Est_X_t
@@ -429,11 +431,11 @@ class ICP():
             while np.any(np.abs(prev_error - alignmenterr) > threshold):
                 prev_error = alignmenterr
                 # Meas_Z_t, Meas_Z_t_1 = self.subsample(Meas_Z_t, Meas_Z_t_1)
-                indices, Colidx, weights =self.correspondence(Meas_Z_t, Meas_Z_t_1)
+                indices, Colidx, weights =self.correspondence(Meas_Z_t, Meas_Z_t_1, Est_X_t)
                 R,T,orientation,alignmenterr,_,_,_,_,p_1mean,p_mean = self._compute_T_R(Meas_Z_t[:,Colidx],Meas_Z_t_1[:,indices], weights)                
                 Meas_Z_t_1 = (R @ (Meas_Z_t_1[:,:]- p_mean) )+p_1mean  
                 loop_cnt +=1
-                print(alignmenterr, orientation)
+                # print(alignmenterr, orientation)
                 if np.all(abs(alignmenterr)< threshold) or loop_cnt > Iter:
                     break   
             # if alignmenterr > 5: #Alignment impossible
@@ -441,28 +443,34 @@ class ICP():
             #     alignmenterr = None
             RelativeTrans = {'r':R,'T':T , 'yaw':orientation,'error':alignmenterr}
             # Calculate T and R between actual measurement  and the transformed scan
-            indices, Colidx, weights =self.correspondence(actMeas, Meas_Z_t_1)
-            R,T,orientation,error,_,_,_,_,_,_ = self._compute_T_R(Meas_Z_t_1[:,indices],actMeas[:,Colidx], weights)
-            GlobalTrans = {'r':R,'T':T , 'yaw':orientation,'error':alignmenterr}
-            GlobalTrans_Lst = np.array([T,R]).flatten().tolist()
+            indices, Colidx, weights =self.correspondence(actMeas, Meas_Z_t_1, Est_X_t)
+            R,T,orientation,error,_,_,_,_,_,_ = self._compute_T_R(actMeas,Meas_Z_t_1, weights)
+            GlobalTrans = {'r':R,'T':T , 'yaw':orientation,'error':np.linalg.norm(error)}
+            GlobalTrans_Lst = np.append(T,orientation)
             return GlobalTrans,GlobalTrans_Lst
         except Exception as e:
             print(e)
 
-    def match_LS(self,Meas_Z_t,Meas_Z_t_1,Est_X_t,Est_X_t_1,Iter = 10,threshold = 0.001):
+    def match_LS(self,Meas_Z_t,Meas_Z_t_1,Est_X_t,Est_X_t_1,Iter = 40,threshold = 0.001):
         # Using Gausss Newton approximation
         chi2_lst, X_lst = [], []
         del_x = np.array([0.,0.,0.]).reshape(3,-1)
-        x = np.array([0.,0.,0.]).reshape(3,-1)
+        x = (Est_X_t[:3] - Est_X_t_1[:3]).reshape(3,-1)
+        x[2] = np.deg2rad(x[2])
+        init_est = x.copy()
+        # x = np.array([0.,0.,0.]).reshape(3,-1)
         p2, p1 =(Meas_Z_t[0:2,:], Meas_Z_t_1[0:2,:])
-        p2 = rotate(Est_X_t[2])@p2 + Est_X_t[0:2].reshape(2,-1)
-        p1 = rotate(Est_X_t_1[2])@p1 + Est_X_t_1[0:2].reshape(2,-1)
+        # p2 = rotate(Est_X_t[2])@p2 + Est_X_t[0:2].reshape(2,-1)
+        # p1 = rotate(Est_X_t_1[2])@p1 + Est_X_t_1[0:2].reshape(2,-1)
         p2, p1 = self.subsample(p2, p1)
+        x1,x2 = p1.shape[1], p2.shape[1]
+        p2, p1 = p2[:,0:min(x1,x2)],p1[:,0:min(x1,x2)]
+        actMeas = p1.copy()
         for _ in range(Iter):
             chi2,deg_x = 0, np.rad2deg(x[2])            
             # Apply transformation on pointcloud
             p1 = rotate(deg_x)@p1+ x[0:2]
-            indices, Colidx, weights =self.correspondence(p2 , p1)
+            indices, Colidx, weights =self.correspondence(p2 , p1,Est_X_t[:3]-x.flatten())
             p1 = p1[:,indices]
             p2 = p2[:,Colidx]
 
@@ -477,26 +485,33 @@ class ICP():
                 H += J[:,:,j].T @ J[:,:,j]
                 b += J[:,:,j].T @ e[:,j:j+1]
                 chi2 += e[:,j:j+1].T @e[:,j:j+1]
-            # print(f"The chi^2 error:{chi2}, matshape:{indices.shape}")
+            # print(f"The chi^2 error:{chi2}, matshape:{len(indices)}")
             if np.abs(chi2) < threshold:
                 x[2] = np.rad2deg(x[2])
-                Trans_Lst = Est_X_t_1[:3] + x.flatten()
+                Trans_Lst = self._getPoseComposition(Est_X_t_1, x)      
                 Trans = {'r':rotate(x[2]),'T': x[0:2], 'yaw':x[2],'error':chi2}
                 return Trans, Trans_Lst
             del_x = -np.linalg.inv(H)@b
             x += del_x
-            # priTrant(x)
-            x[2] = (np.arctan2(np.sin(x[2]), np.cos(x[2])))
+            # print(x, chi2)
+            # x[2] = (np.arctan2(np.sin(x[2]), np.cos(x[2])))
             chi2_lst.append(chi2.flatten())
             X_lst.append(x.copy())
         X_lst = np.array(X_lst)
         minIndx,_ = np.where(chi2_lst==min(chi2_lst))
-        Trans_Lst = X_lst[minIndx][0].flatten()
-        Trans_Lst[2] = np.rad2deg(Trans_Lst[2])
-        Trans_Lst = Est_X_t_1[:3] + Trans_Lst
-        error = min(min(chi2_lst),0.00001)
-        Trans = {'r':rotate(Trans_Lst[2]),'T': Trans_Lst[0:2], 'yaw':(Trans_Lst[2]),'error':error}
+        PoseDiff = X_lst[minIndx-1][0].flatten()
+        PoseDiff[2] = np.rad2deg(PoseDiff[2])
+        Trans_Lst = self._getPoseComposition(Est_X_t_1, PoseDiff)      
+        error = max(min(chi2_lst),0.00001)/p1.shape[1]
+        Trans = {'r':rotate(Trans_Lst[2]),'T': Trans_Lst[:2].reshape(2,1), 'yaw':Trans_Lst[2],'error':error}
         return Trans,Trans_Lst
+    
+    def _getPoseComposition(self,P1, P2):
+        Pose1 = TransMatrix(P1[:2], P1[2])
+        Pose2 = TransMatrix(P2[:2], P2[2])
+        P = Pose1 @ Pose2
+        Trans_Lst = np.append(P[:2,2],np.rad2deg(np.arctan2(P[1,0],P[0,0])))
+        return Trans_Lst
 
     def match_p2plane(self,Meas_Z_t,Meas_Z_t_1,Est_X_t,Est_X_t_1,Iter = 40,threshold = 0.000001): 
         # Find normals to the point on the point cloud.
