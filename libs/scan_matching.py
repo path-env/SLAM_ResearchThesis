@@ -17,7 +17,7 @@ import logging
 from sklearn.neighbors import NearestNeighbors
 from sksurgerygoicppython import GoICP, POINT3D, ROTNODE, TRANSNODE
 
-from utils.tools import rotate , translate, normalize, softmax, TransMatrix
+from utils.tools import rotate , translate, normalize, softmax, poseComposition
 
 def CoordTrans(Meas,X_t, X_t_1,TargetFrame='G'):
     if TargetFrame == 'G':
@@ -374,27 +374,40 @@ class ICP():
             print('nan')
         return R,T,orientation,error, H, u, s, vh,p_1mean,p_mean
     
-    def _closestPtCorrespondence(self,Meas_Z_t, Meas_Z_t_1, Est_diff):
-        tolerance = np.hypot(Est_diff[0], Est_diff[1])
+    def _closestPtCorrespondence(self,Meas_Z_t, Meas_Z_t_1, tolerance):
+        # tolerance = np.hypot(Est_diff[0], Est_diff[1])
         nbrs = NearestNeighbors(n_neighbors=1, algorithm='auto').fit(Meas_Z_t.T)
-        dist, Colidx = nbrs.kneighbors(Meas_Z_t_1.T)
+        dist, p2_Idx = nbrs.kneighbors(Meas_Z_t_1.T)
         # if np.mean(dist)>5:
         #     print(np.mean(dist)
         # print(f"distance mean:{dist.mean()}, max:{dist.max()}")
-        indices,_ = np.where(dist<= 0.5) # ICP LS = 0.1
-        Colidx = Colidx[indices].flatten() #Use the closest point
-        dist = dist[indices].flatten()
+        p1_Idx,_ = np.where(dist<= tolerance) # ICP LS = 0.5
+        p2_Idx = p2_Idx[p1_Idx].flatten() #Use the closest point
+        dist = dist[p1_Idx].flatten()
         weights = np.array([1])
         # weights = self.outlierRejection(indices, Colidx, dist)
-        p2, p1 = Meas_Z_t[:,Colidx],Meas_Z_t_1[:,indices]
-        if len(Colidx) == 0:
+        p2, p1 = Meas_Z_t[:,p2_Idx],Meas_Z_t_1[:,p1_Idx]
+        if len(p2_Idx) == 0:
             print('No correspondense found')
         return p2,p1, weights
 
-    def _matchRangePtCorrespondence(self,Meas_Z_t, Meas_Z_t_1, Est_diff):
-        pass
-    def _IDC(self,Meas_Z_t, Meas_Z_t_1):
-        pass
+    def _matchRangePtCorrespondence(self,Meas_Z_t, Meas_Z_t_1, bound = 0.01):
+        theta = np.rad2deg(np.arctan2(Meas_Z_t_1[1,:] , Meas_Z_t_1[0,:]))
+        theta_hat = np.rad2deg(np.arctan2(Meas_Z_t[1,:] , Meas_Z_t[0,:]))
+        nbrs = NearestNeighbors(n_neighbors=1, algorithm='auto').fit(theta_hat.reshape(-1,1))
+        dist, p2_Idx = nbrs.kneighbors(theta.reshape(-1,1))
+        p1_Idx,_ = np.where(dist<= bound) 
+        p2_Idx = p2_Idx[p1_Idx].flatten() #Use the closest point
+        # for i,O in enumerate(theta):
+        #     diff = np.abs(theta_hat-O)
+        #     Idx = np.argmin(diff)
+        #     if diff[Idx] <bound:
+        #         p2_Idx.append(Idx)
+        #         p1_Idx.append(i)
+        p2, p1 = Meas_Z_t[:,p2_Idx], Meas_Z_t_1[:,p1_Idx]
+        weights =1
+        return p2, p1, weights
+
     def find_normal_vec(self,Meas_Z_t):
         delta_change = np.diff(Meas_Z_t, axis=0)
         norm_abs = np.linalg.norm(Meas_Z_t)
@@ -406,7 +419,9 @@ class ICP():
         Meas_Z_t = np.unique(Meas_Z_t, axis=1)
         Meas_Z_t_1 = np.round(Meas_Z_t_1,2)
         Meas_Z_t_1 = np.unique(Meas_Z_t_1, axis=1)
-        return Meas_Z_t, Meas_Z_t_1
+        x1,x2 = Meas_Z_t_1.shape[1], Meas_Z_t.shape[1]
+        P2, P1  = Meas_Z_t[:,0:min(x1,x2)],Meas_Z_t_1[:,0:min(x1,x2)]
+        return P2, P1
 
     def outlierRejection(self,indices, Colidx, dist):
         weights = softmax(normalize(1/dist).flatten())
@@ -415,7 +430,7 @@ class ICP():
         # weights = np.array([1])
         return weights
 
-    def match(self,Meas_Z_t,Meas_Z_t_1,Est_X_t,Est_X_t_1,Iter = 400,threshold = 0.000001):
+    def match_SVD(self,Meas_Z_t,Meas_Z_t_1,Est_X_t,Est_X_t_1,Iter = 400,threshold = 0.000001):
         Meas_Z_t = Meas_Z_t[[0,1],:]
         Meas_Z_t_1 = Meas_Z_t_1[[0,1],:]
         # if Meas_Z_t.shape != Meas_Z_t_1.shape:
@@ -449,15 +464,16 @@ class ICP():
             RelativeTrans = {'r':R,'T':T , 'yaw':orientation,'error':alignmenterr}
             R,T,orientation,error,_,_,_,_,_,_ = self._compute_T_R(Meas_Z_t_1,actMeas, weights)
             GlobalTrans_Lst = np.append(T,orientation)
-            Trans_Lst = self._getPoseComposition(Est_X_t_1, GlobalTrans_Lst)
+            Trans_Lst = poseComposition(Est_X_t_1, GlobalTrans_Lst)
             GlobalTrans = {'r':rotate(Trans_Lst[2]),'T':Trans_Lst[:2].reshape(2,1) , 'yaw':Trans_Lst[2],'error':np.linalg.norm(error)}
             return GlobalTrans,Trans_Lst
         except Exception as e:
             print(e)
 
-    def match_LS(self,Meas_Z_t,Meas_Z_t_1,Est_X_t,Est_X_t_1,Iter = 40,threshold = 0.001):
+    def match_LS(self,Meas_Z_t,Meas_Z_t_1,Est_X_t,Est_X_t_1,Iter = 40,threshold = 0.00001):
         # Using Gausss Newton approximation
         chi2_lst, X_lst = [], []
+        bound = 1
         del_x = np.array([0.,0.,0.]).reshape(3,-1)
         x = (Est_X_t[:3] - Est_X_t_1[:3]).reshape(3,-1)
         x[2] = np.deg2rad(x[2])
@@ -466,16 +482,15 @@ class ICP():
         p2, p1 =(Meas_Z_t[0:2,:], Meas_Z_t_1[0:2,:])
         # p2 = rotate(Est_X_t[2])@p2 + Est_X_t[0:2].reshape(2,-1)
         # p1 = rotate(Est_X_t_1[2])@p1 + Est_X_t_1[0:2].reshape(2,-1)
-        p2, p1 = self.subsample(p2, p1)
-        x1,x2 = p1.shape[1], p2.shape[1]
-        p2, p1 = p2[:,0:min(x1,x2)],p1[:,0:min(x1,x2)]
-        actMeas = p1.copy()
-        for _ in range(Iter):
-            chi2,deg_x = 0, np.rad2deg(x[2])            
+        P2, P1 = self.subsample(p2, p1)
+        for t in range(Iter):
+            chi2,deg_x = 0, np.rad2deg(x[2]            )
             # Apply transformation on pointcloud
-            p1 = rotate(deg_x)@p1+ x[0:2]
-            p2, p1, weights =self._closestPtCorrespondence(p2 , p1,Est_X_t[:3]-x.flatten())
-            if len(p2)==0:
+            P1 = rotate(deg_x)@P1 + x[0:2]
+            bound = max(0.1,bound*np.exp(-0.1*t))
+            p2, p1, weights =self._closestPtCorrespondence(P2, P1 ,bound)
+            # p2, p1, weights =self._matchRangePtCorrespondence(p2, p1,bound)
+            if p2.shape[1]==0:
                 Trans = {'error':np.inf}
                 Trans_Lst = x.flatten()
                 return Trans, Trans_Lst
@@ -492,32 +507,30 @@ class ICP():
                 b += J[:,:,j].T @ e[:,j:j+1]
                 chi2 += e[:,j:j+1].T @e[:,j:j+1]
             # print(f"The chi^2 error:{chi2}, matshape:{len(indices)}")
+            chi2 = chi2/p1.shape[1]
             if np.abs(chi2) < threshold:
                 x[2] = np.rad2deg(x[2])
-                Trans_Lst = self._getPoseComposition(Est_X_t_1, x.flatten())      
+                Trans_Lst = poseComposition(Est_X_t_1, x.flatten())      
                 Trans = {'r':rotate(x[2]),'T': x[0:2], 'yaw':x[2],'error':chi2}
                 return Trans, Trans_Lst
             del_x = -np.linalg.inv(H)@b
             x += del_x
             # print(x, chi2)
             # x[2] = (np.arctan2(np.sin(x[2]), np.cos(x[2])))
-            chi2_lst.append(chi2.flatten()/p1.shape[1])
+            chi2_lst.append(chi2.flatten())
             X_lst.append(x.copy())
         X_lst = np.array(X_lst)
         minIndx,_ = np.where(chi2_lst==min(chi2_lst))
-        PoseDiff = X_lst[minIndx-1][0].flatten()
+        PoseDiff = X_lst[minIndx+1][0].flatten()
         PoseDiff[2] = np.rad2deg(PoseDiff[2])
-        Trans_Lst = self._getPoseComposition(Est_X_t_1, PoseDiff)      
+        Trans_Lst = poseComposition(Est_X_t_1, PoseDiff)      
         error = max(min(chi2_lst),0.00001)
         Trans = {'r':rotate(Trans_Lst[2]),'T': Trans_Lst[:2].reshape(2,1), 'yaw':Trans_Lst[2],'error':error}
         return Trans,Trans_Lst
     
-    def _getPoseComposition(self,P1, P2):
-        Pose1 = TransMatrix(P1[:2], P1[2])
-        Pose2 = TransMatrix(P2[:2], -P2[2])
-        P = Pose1 @ Pose2
-        Trans_Lst = np.append(P[:2,2],np.rad2deg(np.arctan2(P[1,0],P[0,0])))
-        return Trans_Lst
+    def match_IDC(self,Meas_Z_t,Meas_Z_t_1,Est_X_t,Est_X_t_1,Iter = 40,threshold = 0.001):
+        self._matchRangePtCorrespondence(Meas_Z_t, Meas_Z_t_1)
+        pass
 
     def match_p2plane(self,Meas_Z_t,Meas_Z_t_1,Est_X_t,Est_X_t_1,Iter = 40,threshold = 0.000001): 
         # Find normals to the point on the point cloud.
@@ -748,12 +761,12 @@ class GO_ICP():
 
 if __name__ == '__main__':
     R = 2 # in degress
-    T = np.array([0.1,0]).reshape(2,1)
+    T = np.array([0.5,0]).reshape(2,1)
     Meas_Z_t_1 =np.array([[1,-1],[1,1]],dtype = np.float64)
     Meas_Z_t = np.array([[1,-1],[0,2]],dtype = np.float64)
     Meas_Z_t_1 = np.array([[2,3,-2,-3,-2,-3,2,3],[2,3,2,3,-2,-3,-2,-3]])
     Meas_Z_t = (rotate(R) @ Meas_Z_t_1 ) + T
-    Est_X_t = np.array([0.1,0.,2],dtype = np.float64)
+    Est_X_t = np.array([1,0.,5],dtype = np.float64)
     Est_X_t_1 =np.array([0,0,0],dtype = np.float64)
     SM = ICP()   
     R,T,orientation,error = SM.match_LS(Meas_Z_t,Meas_Z_t_1,Est_X_t,Est_X_t_1)

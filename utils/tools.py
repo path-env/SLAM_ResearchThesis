@@ -62,3 +62,10 @@ def TransMatrix(T, orientation):
     H[:2,:2] = rotate(orientation)
     H[:2,2] = T
     return H
+
+def poseComposition(P1, P2):
+    Pose1 = TransMatrix(P1[:2], P1[2])
+    Pose2 = TransMatrix(P2[:2], -P2[2])
+    P = Pose1 @ Pose2
+    Trans_Lst = np.append(P[:2,2],np.rad2deg(np.arctan2(P[1,0],P[0,0])))
+    return Trans_Lst
