@@ -36,8 +36,8 @@ class Map():
             self.Xlim_end = (2*self.max_lidar_r + 91)
             self.Ylim_start = (0)
             self.Ylim_end = (2*self.max_lidar_r + 91)
-            self.Lat_Width =  (self.Ylim_end -  self.Ylim_start)
-            self.Long_Length =  (self.Xlim_end -  self.Xlim_start)
+            self.Lat_Width =  (self.Ylim_end -  self.Ylim_start)/self.Grid_resol
+            self.Long_Length =  (self.Xlim_end -  self.Xlim_start)/self.Grid_resol
         else: #Global Map
             self.Grid_resol = 1
             self.Xlim_start = (0- self.max_lidar_r - 95)
@@ -181,7 +181,7 @@ class Map():
 
     def PlotMap(self,Map,Pose_X_t,title):
         dim = self.max_lidar_r+self.Roffset
-        Veh = patches.Rectangle((Pose_X_t[0]+dim-5 , Pose_X_t[1]+dim-3.5),5,3.5, Pose_X_t[2],linewidth= 0.5, edgecolor='r')          
+        Veh = patches.Rectangle((Pose_X_t[0]+dim-5 , Pose_X_t[1]+100+dim-3.5),5,3.5, Pose_X_t[2],linewidth= 0.5, edgecolor='r')          
         probMap = np.exp(Map)/(1.+np.exp(Map))
         plt.title(f"{title} x:{np.round(Pose_X_t[0],5)} , y:{np.round(Pose_X_t[1],5)}, yaw:{np.round(Pose_X_t[2],5)}")
         plt.ylim(0,self.Lat_Width)
