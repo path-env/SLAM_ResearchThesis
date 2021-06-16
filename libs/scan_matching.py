@@ -484,7 +484,7 @@ class ICP():
         # p1 = rotate(Est_X_t_1[2])@p1 + Est_X_t_1[0:2].reshape(2,-1)
         P2, P1 = self.subsample(p2, p1)
         for t in range(Iter):
-            chi2,deg_x = 0, np.rad2deg(x[2]            )
+            chi2,deg_x = 0, np.rad2deg(x[2])
             # Apply transformation on pointcloud
             P1 = rotate(deg_x)@P1 + x[0:2]
             bound = max(0.1,bound*np.exp(-0.1*t))
@@ -557,8 +557,8 @@ class RTCSM():
         
         #Construct Low resolution Map
         LMap = self._lowResMap(HMap, centre_pos, Est_X_t)
-        Updt_X_t, confidence_ = self._search3DMatch( Est_X_t, Est_X_t_1, Meas_Z_t, centre_pos, LMap, 0.5,mode='L')
-        Updt_X_t, confidence = self._search3DMatch(Updt_X_t, Est_X_t_1, Meas_Z_t, centre_pos, HMap, 0.05, mode= 'H')
+        Updt_X_t, confidence_ = self._search3DMatch( Est_X_t, Est_X_t_1, Meas_Z_t, centre_pos, LMap, 0.1,mode='L')
+        Updt_X_t, confidence = self._search3DMatch(Updt_X_t, Est_X_t_1, Meas_Z_t, centre_pos, HMap, 0.01, mode= 'H')
         Trans = {'error':confidence, 'T':np.array([Updt_X_t[0], Updt_X_t[1]]).reshape(2,-1), 'yaw':Updt_X_t[2]}
         return Trans
     
@@ -579,7 +579,6 @@ class RTCSM():
         for row in range(0,Map_X_len,LowResol):
             for col in range(0,Map_Y_Len,LowResol):
                 LowResolMap[row:row+LowResol, col:col+LowResol] = np.max(HMap[row:row+LowResol, col:col+LowResol])
-        
         #self.OG.PlotMap(np.rot90(LowResolMap,3),Est_X_t,'Low resolution Map 3:1')        
         return LowResolMap
     
@@ -587,12 +586,12 @@ class RTCSM():
         MeasMap = Map
         # create a search space
         if mode == 'L':
-            Numcell = 5/searchStep #5
+            Numcell = 2 #0.1
         else:
-            Numcell = 0.2/searchStep #4
+            Numcell = 1 #0.01
             #Numcell = 15
-        Xrange = np.arange(-Numcell ,  Numcell+searchStep)#, searchStep)
-        Yrange = np.arange(-Numcell ,  Numcell+searchStep)#, searchStep)
+        Xrange = np.arange(-Numcell ,  Numcell+searchStep, searchStep)
+        Yrange = np.arange(-Numcell ,  Numcell+searchStep, searchStep)
         x , y = np.meshgrid(Xrange,Yrange)
         if mode == 'H':
             TargetMap = self.HTgtMap
@@ -609,7 +608,7 @@ class RTCSM():
             # sq[np.where(sq <EstDistDrvn)] = np.ceil(EstDistDrvn)
             Pos_search_mask = (-(1 / (2 * self.Pos_var**2)) * (sq + EstDistDrvn)**2)
             # Pos_search_mask = normalize(Pos_search_mask)
-            Pos_search_mask[rrv>1] = -100
+            Pos_search_mask[rrv>(EstDistDrvn*2)] = -100
             #Pos_search_mask[Pos_search_mask < -25000] = -10000000
             if np.abs(Est_X_t[2]  - Est_X_t_1[2]) > 1:
                 distv = np.sqrt(x**2 + y**2)
@@ -632,10 +631,12 @@ class RTCSM():
         Meas = {}
         #Meas['x'], Meas['y']= Meas_Z_t['x'], Meas_Z_t['y']
         plt.figure()
+        Est =[Est_X_t[0]+self.dim,Est_X_t[1]+self.dim,Est_X_t[2]]
         for i,ori in enumerate(ori_space):
-            Est= np.array([Est_X_t[0],Est_X_t[1] ,Est_X_t[2]+ori]).reshape(-1,1)
+            plt.cla()
+            Est[2] = Est[2] + ori
             #Meas = self._rotate(Est, Meas, searchStep)
-            Temp_map = sp.ndimage.rotate(MeasMap, ori , reshape=False)
+            Temp_map = sp.ndimage.rotate(MeasMap, ori , reshape=False, order=0)
             Temp_map[Temp_map<0.3] = 0 
             # m = self.rotate(Est,Meas)
             Meas['x'], Meas['y']= np.where(Temp_map>0)
@@ -644,8 +645,8 @@ class RTCSM():
             rotatedPxIdx = rotatedPxIdx.reshape(1, 1, -1) #- self.OG.max_lidar_r
             rotatedPyIdx = rotatedPyIdx.reshape(1, 1, -1) #-  self.OG.max_lidar_r
             rotatedPxIdx = (rotatedPxIdx + x +Est[0]).astype(int)
-            rotatedPyIdx = (rotatedPyIdx + y +Est[1] +self.dim).astype(int)
-            convResult = -TargetMap[rotatedPxIdx, rotatedPyIdx]
+            rotatedPyIdx = (rotatedPyIdx + y +Est[1] ).astype(int)
+            convResult = TargetMap[rotatedPxIdx, rotatedPyIdx]
 
             convResultSum = np.sum(convResult, axis=2)
             # convResultSum = normalize(convResultSum)
@@ -659,11 +660,8 @@ class RTCSM():
             # self.OG.PlotMap(np.rot90(Temp_map,0),Est,'tmp map')
             # plt.contour(Pos_search_mask)
             # plt.contour(Ori_search_mask)
-
             plt.contourf(UncrtnMap)
             plt.pause(0.001)
-            plt.cla()
-
         # Find the best voxel in the Low resolution Map
         minIdx = np.unravel_index(Corr_Cost_Fn.argmin(), Corr_Cost_Fn.shape)
         confidence = np.sum(np.exp(Corr_Cost_Fn))
@@ -672,15 +670,6 @@ class RTCSM():
         Updt_X_t = [Est_X_t[0] + dx, Est_X_t[1] + dy, Est_X_t[2] + dtheta]
         return Updt_X_t , confidence
         
-    def covertMeasureToXY(self, Est_X_t, rMeasure):
-        rads = np.linspace(Est_X_t[2] - self.OG.FOV / 2, Est_X_t[2]  + self.OG.FOV / 2,num=10)
-        range_idx = rMeasure < self.OG.max_lidar_r
-        rMeasureInRange = rMeasure[range_idx]
-        rads = rads[range_idx]
-        px = Est_X_t[0]  + np.cos(rads) * rMeasureInRange
-        py = Est_X_t[1]  + np.sin(rads) * rMeasureInRange
-        return px, py
-
     def rotate(self, Est_X, Meas):
         """
         Rotate a point counterclockwise by a given angle around a given origin.
@@ -693,11 +682,6 @@ class RTCSM():
         xIdx = (((qx - (Est_X[0] - self.OG.max_lidar_r)) / 0.5)).astype(int)
         yIdx = (((qy - (Est_X[1] - self.OG.max_lidar_r)) / 0.5)).astype(int)
         return qx, qy
-
-    def convertXYToSearchSpaceIdx(self, px, py, beginX, beginY, unitLength):
-        xIdx = (((px - beginX) / unitLength)).astype(int)
-        yIdx = (((py - beginY) / unitLength)).astype(int)
-        return xIdx, yIdx
 
     def _rotate(self, Est_X, Meas, searchStep):
         RotatedMeas ={}
