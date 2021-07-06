@@ -30,3 +30,4 @@ slam_particlefilter/__pycache__/particle.cpython-38.pyc
 docs/SLAM_Benchamarking.aux
 libs/__pycache__/slam_analyzer.cpython-38.pyc
 docs/SLAM_Benchamarking.bcf
+main/__pycache__/ROSBag_decode_gmap.cpython-38.pyc

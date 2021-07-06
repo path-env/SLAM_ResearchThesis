@@ -14,7 +14,7 @@ from utils.tools import Lidar_3D_Preprocessing
 from slam_particlefilter.particle import Particle
 from utils.tools import softmax, normalize
 from libs.occupancy_grid import Map
-from libs.scan_matching import ICP, RTCSM
+from libs.scan_matching import ICP, RTCSM, Scan2Map
 # from main.ROSBag_decode_gmap import ROS_bag_run
 class Gmapping():
     def __init__(self, plotter, N):
@@ -22,22 +22,23 @@ class Gmapping():
         self.particleList  = []
         self.aly = plotter
         self.OG = Map()
-        self.particleCnt =10
+        self.particleCnt =30
         self.parl = Parallel()
-
+        
     def noise_matrix(self, No_sample, var):
-        var = np.diag([0.05,0.05,0.05,0.05])
-        noise = np.random.randn(4)
-        for _ in range(No_sample-1):
-            noise = np.vstack((noise, np.random.randn(4)))
+        var = np.diag([0.1,0.1,0.1,0.1])
+        noise = np.random.randn(No_sample,1)*0.1
+        for _ in range(3):
+            noise = np.hstack((noise, np.random.randn(No_sample,1)))
         noise[:,3] = 0
         noise = noise @ var
         return noise
 
     def genrate_particles(self,Meas_X_t, Meas_Z_t):
         self.OG.Update(Meas_X_t, Meas_Z_t,True)
-        self.SM = ICP() #GO_ICP(Meas_Z_t, Meas_X_t)
+        # self.SM = ICP() #GO_ICP(Meas_Z_t, Meas_X_t)
         # self.SM = RTCSM(self.OG,Meas_X_t, Meas_Z_t)
+        self.SM = Scan2Map(self.OG)
         self.particleList = [Particle(Meas_X_t, Meas_Z_t, self.OG, self.SM, cnt) for cnt in range(self.particleCnt)]
 
     def main(self, Meas_X_t, Meas_Z_t, IMU_Z_t):
@@ -48,16 +49,16 @@ class Gmapping():
         for P in self.particleList:
             # print(f"Particle {P.id} is being processed")
             st_prime = P.motion_prediction(cmdIn, dt)
-            GT,GT_Lst = P.scan_match(st_prime, Meas_Z_t, self.Meas_Z_t_1)
+            GT,GT_Lst = P.scan_match(Meas_X_t,self.prev_scan_update, Meas_Z_t, self.Meas_Z_t_1)
             print(GT['error'])
-            if GT['error'] > 0.1: #ICP SVD= 0.1. #ICP LS = 4 
+            if GT['error'] > 0.0015: #ICP SVD= 0.1. #ICP LS = 0.001 
                 #ScanMatch results very poor , use the motion model prediction
                 P.st = st_prime
                 P.w = P.w * lklyMdl(Meas_Z_t.to_numpy().T, P.st,self.OG.MapIdx_G)
             else:
                 # compute the Gaussian proposal
-                st_hat = GT_Lst
-                st_hat = np.append(st_hat, Meas_X_t[3])
+                st_hat = GT_Lst[:2]
+                st_hat = np.append(st_hat, Meas_X_t[2:4])
                 diff = st_hat - Meas_X_t[:4] 
                 print(f'diff1:{np.linalg.norm(diff)}')
                 sample_cnt = 20
@@ -94,8 +95,8 @@ class Gmapping():
                 # P.sigma = np.cov(Gaus_sampl.T, aweights=lykly.flatten()) #covariance
                 # print(f'Type2:{P.sigma}')
                 #Sample Pose from Guas Approx
-                P.st = P.mu + np.random.randn(4)*P.sigma
-                diff = P.mu - Meas_X_t[:4] 
+                P.st = P.mu + np.random.rand(4)*P.sigma
+                diff = P.st - Meas_X_t[:4] 
                 print(f'diff2:{np.linalg.norm(diff)}')
                 # P.st = np.sum(P.st, axis=0)/4
                 #update importance weight
@@ -120,7 +121,7 @@ class Gmapping():
 
     def _est_state(self, Meas_Z_t, Meas_X_t, heavyPart):
         mu = np.array([0.,0.,0.,0.])
-        var = np.zeros((4,4), dtype=np.float32)
+        var = np.zeros((1,4), dtype=np.float32)
         norm = 0.
         # weighed sum of each particle
         for P in self.particleList:
@@ -157,6 +158,7 @@ class Gmapping():
             self.Meas_X_t_1 = Meas.copy()
             self.IMU_Z_t_1 = IMU_Z_t.copy()
             self.Meas_Z_t_1 = Meas_Z_t.copy()
+            self.prev_scan_update = self.Meas_X_t_1[:4]
             self.iteration += 1
             return None
         # Check Timeliness
