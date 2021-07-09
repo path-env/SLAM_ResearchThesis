@@ -170,7 +170,8 @@ class Scan2Map():
         corres = []
         #ND = np.zeros(Map.shape)
         #OccIdx = self.OG.MapIdx_G 
-        Map_NDS, Scan_NDs = [], []
+        Map_NDS_mu, Scan_NDS_mu = [], []
+        Map_NDS_sig, Scan_NDS_sig = [], []
         for row in range(0,self.OG.Long_Length, KS):
             Idx1_1 = np.where(np.logical_and(MapOccIdx[0,:]>row,MapOccIdx[0,:]<KS+row))
             Idx1_2 = np.where(np.logical_and(ScanOccIdx[0,:]>row,ScanOccIdx[0,:]<KS+row))
@@ -192,8 +193,11 @@ class Scan2Map():
                 # Scan_ND = self.getSurfaces(SlctIdx2)
                 Map_ND, KL = self.div_KullbackLeibler(Map_ND, Scan_ND)
                 corres.append(KL)
-                Map_NDS.append(Map_ND)
-                # Scan_NDs.append(Scan_ND)
+                Map_NDS_mu.append(Map_ND['mu'])
+                Map_NDS_sig.append(Map_ND['sig'])
+                Scan_NDS_mu.append(Scan_ND['mu'])
+                Scan_NDS_sig.append(Scan_ND['sig'])
+        self.getGPlus(Map_NDS_mu, Map_NDS_sig,Scan_NDS_mu,Scan_NDS_sig,corres)
         return Map_NDS
     
     def div_KullbackLeibler(self, Map_ND, Scan_ND):
@@ -249,6 +253,32 @@ class Scan2Map():
         ScanIdx = np.where(*Scan_NDs.keys() >1 )
         return np.intersect1d(MapIdx, ScanIdx)
     
+    def getGPlus(self,Map_NDS_mu, Map_NDS_sig,Scan_NDS_mu,Scan_NDS_sig,corres):
+        Map_NDS_mu,Map_NDS_sig = np.array(Map_NDS_mu), np.array(Map_NDS_sig)
+        Scan_NDS_mu,Scan_NDS_sig = np.array(Scan_NDS_mu), np.array(Scan_NDS_sig)
+        p = np.array([0,0,0])
+        ScanGp_ND = []
+        for _ in range(10):
+            Scan_NDS_mu = rotate(p[2]) @ Scan_NDS_mu.T + p[0:2].reshape(2,1)
+            Scan_NDS_sig = rotate(p[2]) @ Scan_NDS_sig @ np.linalg.inv(rotate(p[2]))
+
+            J = np.zeros((2,3,Map_NDS_mu.shape[0]))
+            H = np.zeros((3,3))
+            g = np.zeros((3,1))
+            t = Map_NDS_mu.T - Scan_NDS_mu
+            deg_x = np.rad2deg(p[2])
+            J[0,0,:] , J[1,1,:] =1,1
+            J[0,2,:] = -np.sin(deg_x)*t[0,:] - np.cos(deg_x)*t[1,:] 
+            J[1,2,:] = np.cos(deg_x)*t[0,:]  + np.sin(deg_x)*t[1,:]
+            for j in range(Map_NDS_mu.shape[0]):
+                tmp = t[:, j] @ np.linalg.pinv(Scan_NDS_sig[j,:,:]) @ J[:,:,j]
+                H += tmp @ tmp.T
+                g +=  tmp @ corres[j]
+                chi2 += e[:,j:j+1].T @e[:,j:j+1]
+            # print(f"The chi^2 error:{chi2}, matshape:{len(indices)}")
+            chi2 = chi2/p1.shape[1]                   
+        pass
+
     def Scan_Map_match(self,Scan_ND , Map_ND):
         self.logger.info("Match Scan to Global Map")
         ND_Dim = 2

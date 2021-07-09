@@ -36,9 +36,9 @@ class Gmapping():
 
     def genrate_particles(self,Meas_X_t, Meas_Z_t):
         self.OG.Update(Meas_X_t, Meas_Z_t,True)
-        # self.SM = ICP() #GO_ICP(Meas_Z_t, Meas_X_t)
+        self.SM = ICP() #GO_ICP(Meas_Z_t, Meas_X_t)
         # self.SM = RTCSM(self.OG,Meas_X_t, Meas_Z_t)
-        self.SM = Scan2Map(self.OG)
+        # self.SM = Scan2Map(self.OG)
         self.particleList = [Particle(Meas_X_t, Meas_Z_t, self.OG, self.SM, cnt) for cnt in range(self.particleCnt)]
 
     def main(self, Meas_X_t, Meas_Z_t, IMU_Z_t):
