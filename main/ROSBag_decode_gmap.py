@@ -87,9 +87,9 @@ def ROS_bag_run():
         if topic == '/carla/ego_vehicle/odometry':  
             Quat = Quaternion(msg.pose.pose.orientation.w,msg.pose.pose.orientation.x,msg.pose.pose.orientation.y,msg.pose.pose.orientation.z)
             Eul = Quat.to_euler(degrees = True)  #(roll, pitch, yaw)
-            Meas_X_t['x'] = msg.pose.pose.position.x #+ np.random.randn()*1
-            Meas_X_t['y'] = msg.pose.pose.position.y #+ np.random.randn()*1
-            Meas_X_t['yaw'] = Eul[2] #+ np.random.randn()*1
+            Meas_X_t['x'] = msg.pose.pose.position.x + np.random.randn()*0.01
+            Meas_X_t['y'] = msg.pose.pose.position.y + np.random.randn()*0.01
+            Meas_X_t['yaw'] = Eul[2] + np.random.randn()*0.01
             Meas_X_t['t']= t.to_sec()
             #g.append(t.to_sec())
             Odom_avail =1

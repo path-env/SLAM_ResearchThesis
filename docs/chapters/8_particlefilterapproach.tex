@@ -73,12 +73,60 @@ It is found that Adaptive resampling provides the best criteria for resampling. 
 N_{eff} = \frac{1}{\sum_{i=1}^{N} w_{i}^{2} } 
 \end{gather}
 where ${w_{i}}$ is normalized weight of the particles in the sample set and ${N}$ is the number of particles.  Resampling is performed only 
-when the ${N_{eff} < N/2}$
+when the ${N_{eff} < N/2}$.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Rao-Blackwellized Particle Filter}
-
+ This method explots the spatial structure in the particle filter. Instead of applying particle filter on all the dimensions, use the particle filter in only few dimensions
+but exploits linearity in other dimensions. In case of SLAM the joint posterior $p(x_{1:t}, m | z_{1:t}, u_{1:t-1})$ can be factorized as 
+\begin{gather} \label{RAoB}
+    p(x_{1:t}, m | z_{1:t}, u_{1:t-1}) = p(m | z_{1:t}, x_{1:t}).p(x_{1:t} | z_{1:t}, u_{1:t-1})
+\end{gather}
+where the problem of solving the joint posteriror disintegerates to $p(m | z_{1:t}, x_{1:t})$ mapping which is the linear part in the spatial structure and $p(x_{1:t} | z_{1:t}, u_{1:t-1})$
+localization where particle filter can be applied. By estimating the trajectory of positions, then the mapping can be performed easily. With the right choice of the proposal distribution,
+where it can be resolved into recursive terms as in \refeq{SIS_propfact} then the weight calculation can also be done recursively.
+\begin{gather} \label{RaoB_weight}
+    w_{t}^{i} = w_{t-1}^{i} \frac{p(z_{t}|x_{t}^{i}, m_{t-1}^{i}). p(x_{t}^{i}|x_{t-1}^{i}, u_{t-1})}{q(x_t|x_{t-1}^{i},z_{t}, u_{t-1})}
+\end{gather}
+This is followed by the resampling step and the estimation is carried over recursively.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{gMapping-Improved RBPF}
+    The proposal distribution discussed so far use the motion model which is easy to compute for most type of robots and recursive calculation of the importance weights used only the
+measurement model to update the previous importance weight. However this can result in suboptimal results as a laser sensor could provide better accurate information than the motion
+estimate. Hence using the sensor observation in the proposal distribution can provide better approximation than the motion estimate. In the case of grid mapping the number of occupied 
+cell state explodes which makes it difficult to calculate the importance weight update recursively. Hence the known proposal distribution can be obtained using the adapted particle
+filter where the proposal distribution of each particle is derived from sampled estimate of optimal proposal distribution.
+    It is observed that the likelihood of the robot position with the help of sensor observations has only one peak with small variance. Hence limiting the sample of the proposal
+to this likelihood would help in reduced sample set as very few particles can easily describe the distribution. 
+\begin{gather} \label{gMap-L}
+    L^{(i)} = \{ x | p(z_t| m_{t-1}^{(i)},x)>\epsilon\} 
+\end{gather}
+This region consists of information from the observation likelihood and motion model. In order to determine the region of maximum likelihood a Scan 
+matching procedure is applied. 
+\begin{gather} \label{gMap-SM}
+    \hat{x_t} = argmax_x p(x|m_{t-1}^{(i)}, z_t, x_t^{(i)})
+\end{gather}
+Several scan matching procedures are experimented in this thesis and it will be described and compared in the later chapters. With the region of high likelihood
+derived now a second generation of samples are generated 
+\begin{gather} \label{gMap-2samp}
+    x_k \approx \{x_j | |x_j - \hat{x^{(i)}}|<\epsilon \}
+\end{gather}
+can be efficiently derived from which mean and variance of the sample set is calculated. 
+\begin{gather} \label{gMap-mu}
+    \mu_t^{(i)} = \frac{1}{\eta}. \sum_{j = 1}^{k}  x_j.p(z_t | m_{t-1}, x_j). p(x_j | x_{t-1}, u_{t-1}) \\
+    \varSigma_t = \frac{1}{\eta}. \sum_{j = 1}^{k}  p(z_t | m_{t-1}, x_j). p(x_j | x_{t-1}, u_{t-1}).(x_j - \mu_t).(x_j - \mu_t)^T \\
+    \eta = \sum_{j = 1}^{k}  p(z_t | m_{t-1}, x_j). p(x_j | x_{t-1}, u_{t-1})
+\end{gather}
+This leads to the efficient recursive calculation of the importance weights.
+\begin{gather} \label{gMap-w}
+    w_{t}^{i} = w_{t-1}^{i}.\eta
+\end{gather}
+However in situations in which the scan matching fails, motion model estimate is used to estimate the most likely position and derive the second generation samples.
+\begin{gather} \label{gMap-MM}
+    \hat{x_t} = p(x|m_{t-1}^{(i)}, z_t, x_t^{(i)}) \\
+    w_{t}^{i} = w_{t-1}^{i}.p(z_t | m_{t-1}, x_j)
+\end{gather}
+Finally when the variance of the weights increases as per the Adaptive Resampling criteria discussed earlier, then Resampling can be carried out on the existing particle
+set.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Results and Analysis}

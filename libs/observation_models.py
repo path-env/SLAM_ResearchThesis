@@ -64,6 +64,7 @@ def Likelihood_Field_Observation_Model(Meas_Z_t , Est_X_t ,MapIdx_G ,z_hit = 0.5
     # Map = Map_obj.getOccIndies_G()
     nbrs = NearestNeighbors(n_neighbors=1, algorithm='auto').fit(MapIdx_G.T)
     dist, Colidx = nbrs.kneighbors(Meas_Z_t_G.T)
+    dist = dist[dist<dist.mean()]
     # print(dist.mean())
     for d in dist:
         likly = likly*( z_hit*Prob_Gaus_dist(d,sigma**2) + (z_random/z_max))   

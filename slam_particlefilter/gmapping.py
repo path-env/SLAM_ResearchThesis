@@ -51,7 +51,7 @@ class Gmapping():
             st_prime = P.motion_prediction(cmdIn, dt)
             GT,GT_Lst = P.scan_match(Meas_X_t,self.prev_scan_update, Meas_Z_t, self.Meas_Z_t_1)
             print(GT['error'])
-            if GT['error'] > 0.0015: #ICP SVD= 0.1. #ICP LS = 0.001 
+            if GT['error'] > 0.0015: #ICP SVD= 0.1. #ICP LS = 0.0015 
                 #ScanMatch results very poor , use the motion model prediction
                 P.st = st_prime
                 P.w = P.w * lklyMdl(Meas_Z_t.to_numpy().T, P.st,self.OG.MapIdx_G)
@@ -74,7 +74,9 @@ class Gmapping():
                 #sub sample in the region found by scan matching
                 #compute Mean
                 for j in range(Gaus_sampl.shape[0]):
-                    meas_lykly = lklyMdl(Meas_Z_t.to_numpy().T , Gaus_sampl[j],self.OG.MapIdx_G)
+                    MapIdx_G = self.OG.MapIdx_G - self.OG.MapDim
+                    MapIdx_G[1,:] = MapIdx_G[1,:] -100
+                    meas_lykly = lklyMdl(Meas_Z_t.to_numpy().T , Gaus_sampl[j],MapIdx_G)
                     # GT,_ = P.scan_match(Gaus_sampl[j], Meas_Z_t, self.Meas_Z_t_1)
                     mu_mat[j,:] = Gaus_sampl[j]
                     lykly = np.append(lykly,meas_lykly)
@@ -131,7 +133,7 @@ class Gmapping():
         mu = mu/norm
         self.prev_scan_update = mu
         self.aly._set_trajectory(mu,heavyPart)
-        self.OG.Update(mu, Meas_Z_t,False)
+        # self.OG.Update(mu, Meas_Z_t,False)
         # self.SM.updateTargetMap(mu, Meas_Z_t)
         
     def _random_resample(self, part_w, Meas_Z_t):

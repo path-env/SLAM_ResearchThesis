@@ -21,14 +21,14 @@ In simple words the squared error in the observation from two different relative
 This approach results in closed form solution only when the point correspondence of two point clouds is known. Hence it is iterated over until convergence.
 \par
 Given the two point cloud data $p_1$ and $p_2$, where $p_2 = \mathcal{R}p_1 + \mathcal{T} + N$, find $\mathcal{R}$ and $\mathcal{T}$ such that error function
-\begin{equation}
+\begin{gather} \label{ICP-error}
     E(\mathcal{R}, \mathcal{T}) = \frac{1}{N_{p_1}}  \Sigma_{i=1}^{N_{p_1}}\left\lVert p_2 - \mathcal{R} p_1 -\mathcal{T} \right\rVert^2 
-\end{equation}
+\end{gather}
 is minimized.
 where $N_{p_1}$ is the number of points in the point cloud data.
 
 It can be accomplished by taking the centroids of the point clouds $p_1$ and $p_2$ such that
-\begin{equation}
+\begin{gather} \label{ICP}
     \begin{aligned}
         \mu_{p_1}&= \frac{1}{N_{p_1}} \Sigma_{i=1}^{N_{p_1}} p_{1_i}\\
 
@@ -39,7 +39,7 @@ It can be accomplished by taking the centroids of the point clouds $p_1$ and $p_
 
         H&\triangleq  \Sigma_{i=1}^{N} P_1 P_2^T\\
     \end{aligned}
-\end{equation}
+\end{gather}
 Now to find the rotational component of the motion parameters $\mathcal{R}$, 
 Spectral Value Decomposition can be applied on the cross covariance matrix $H$.
 
