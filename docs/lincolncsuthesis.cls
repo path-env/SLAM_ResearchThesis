@@ -1,20 +1,15 @@
  %%
  %% lincolncsuthesis.cls
- %% Copyright (c) 2020 Benjamin Williams <bwilliams@lincoln.ac.uk>
+ %% Copyright (c) 2021 Benjamin Williams <bwilliams@lincoln.ac.uk>
  %%
- %% A LaTeX template for typesetting undergraduate degree theses
+ %% A LaTeX template for typesetting research degree theses
  %% according to the University of Lincoln School of Computer Science
  %% thesis guidelines.
  %%
  %% It is worth noting that the main inspiration (and small snippets of code) 
- %% for this template was Cameron Gray's bangorcsthesis template.
+ %% for this template was Cameron Gray's bangorcsthesis template. 
  %%
- %% God bless you Cameron, you absolute crazy genius.
- %%  
- %% This template is also heavily influenced by the original 
- %% lincolncsthesis class, for postgraduate research degrees at
- %% the UoL SoCS (also written by me).
- %%
+ %% God bless you Cameron, you crazy genius.
  %%
  %% -----------------------------------------
  %%
@@ -26,7 +21,33 @@
  %% and version 1.3 or later is part of all distributions of LaTeX
  %% version 2005/12/01 or later.
  %%
-
+ 
+ %%
+ %% A big thanks to the following people for feedback, testing and
+ %% feature suggestions:
+ %%
+ %% Chris Headleand, Mark Doughty, Carla Taylor-Rutterford,
+ %% Bethany Davies, Kieran Hicks, Liam Mason, Jake Harrington,
+ %% Ashley Knowles, Hala Haneya, Felicity Mayo, Alexander Orlow,
+ %% Miriam Muller 
+ %%
+ 
+ %% CHANGELOG (started with 1.0.5)
+ %%
+ %% - [1.0.5, 21/04/21] 
+ %%    Added notice about arabtex, added optional commands for
+ %%    adding sections before thesis body to TOC
+ %%
+ %% - [1.0.6, 26/04/21]
+ %%   Added missing \thesisSubmissionText command to override
+ %%   thesis submission text
+ %%
+ %% - [1.0.7, 26/04/21]
+ %%   Added commands to optionally omit the TOF, TOC and TOT.
+ %%   Moved manual TOC entries for abstract, acknowledgements
+ %%   into thesis template itself.
+ %%
+ 
 
 % We're gonna be defining variables as long globals
 % (because they might wanna split these up with extra lines)
@@ -36,18 +57,13 @@
 \def\@classname {lincolncsuthesis}
 
 
-% Changelog (implemented 12/6/2020)
-% -------------
-% - 1.0.1 [12/6/2020]: Added appendices and altered PGR template for undergraduate use.
-% - 1.0.2 [26/10/2020]: Fixed appendices environment and numbering. Altered info text slightly. Added titletoc option to appendices package.
-
 
 % METADATA AND OPTIONS
 % --------------------
 
 % Define thesis template version and other metadata
-\gdef\@templateVersion{1.0.2}
-\gdef\@templateDate{2020/26/10}
+\gdef\@templateVersion{1.0.7}
+\gdef\@templateDate{26/04/2021}
 \gdef\@templateAuthor{Benjamin Williams}
 
 % It provides this class
@@ -62,16 +78,17 @@
 
 
 
+
 % PACKAGES
-% ------------
+% --------
+
 
 % Packages
 \RequirePackage{amsmath}
-\RequirePackage{amssymb}
 % --
 \RequirePackage{ifthen}
 \RequirePackage{xkeyval}
-\RequirePackage[dvipsnames]{xcolor}
+\RequirePackage[usenames,dvipsnames,svgnames,table]{xcolor}
 \RequirePackage[T1]{fontenc} % font types and character verification
 \RequirePackage[UKenglish]{babel}
 \RequirePackage[UKenglish]{isodate}
@@ -89,17 +106,40 @@
 \RequirePackage{url}
 \RequirePackage{hyperref}
 \RequirePackage[table,figure]{totalcount}
-\RequirePackage[titletoc]{appendix}
-\RequirePackage{framed}
+\RequirePackage{appendix}
 % -----------------
 \RequirePackage{csquotes}
 \RequirePackage{titlesec}
 \RequirePackage{datetime2}
 \RequirePackage{fancyhdr}
 \RequirePackage{lmodern}
+\RequirePackage[backend=biber,
+style=apa,
+citestyle=authoryear
+]{biblatex}
+
+
+
+% FANCY DATE STUFF
 % -----------------
 
+\newcommand{\monthyeardate}{%
+  \DTMenglishmonthname{\@dtm@month} \@dtm@year
+}
 
+\newcommand{\yeardate}{%
+  \@dtm@year
+}
+
+% Another handy macro to test if there's an option
+\def\ifClassOption [#1]#2 {
+    \@ifclasswith{\@classname}{#1}{#2}{\empty}
+}
+
+% Another handy macro to test if there's an option + else
+\def\ifClassOptionElse [#1]#2#3 {
+    \@ifclasswith{\@classname}{#1}{#2}{#3}
+}
 
 % Define variables relevant to this thesis
 \lxdef \@logo           {FHD_logo}
@@ -118,7 +158,137 @@
 \newcommand{\thesisHeaderContents}[1]{\xdef\@headercontents{#1}}
 % -----
 \newcommand{\thesisTurnOffHF}{\xdef\@headerturnoff{yup}}
+\newcommand{\thesisSupervisor}[1]{\xdef\@supervisor{#1}}
 % -----
+
+% START OF THESIS
+% --------------
+
+\fancypagestyle{plain}{
+    \renewcommand{\headrulewidth}{0pt}%
+    \fancyhf{}%
+    \fancyfoot[R]{\footnotesize\textbf{\thepage}}%    
+}
+
+
+\fancypagestyle{mainStyle}{
+	\renewcommand{\headrulewidth}{0pt}%
+	\fancyhf{}%
+	\fancyfoot[R]{\footnotesize\emph{\leftmark} \hspace{0.25cm} \footnotesize\textbf{\thepage}}%   
+	
+	\@ifundefined{@includeheaders}{
+	
+	}{
+    	\fancyhead[R]{\textit{\footnotesize \@modulecode~\@modulename}}
+    	\fancyfoot[L]{\footnotesize \@author \hspace{0.5cm} \@studentnumber}
+	}
+}
+
+
+\newcommand{\thesisBodyStart}{
+
+    % Clear the page so we don't number the last page
+    \cleardoublepage
+    
+    % Set page numbering back to 1, 2, 3 .. 
+    \pagenumbering{arabic} 
+}
+
+% TOC PREAMBLE COMMANDS
+% ---------------------
+
+\newcommand{\enableManualTOCEntries}{\xdef\@manualTOCEnabled{yup}}
+\newcommand{\disableTableTOCEntries}{\xdef\@disabledTableTOCEntries{yup}}
+
+\newcommand{\manualTOCEntry}[2]{
+    \@ifundefined{@manualTOCEnabled}{}{
+        \addcontentsline{toc}{#1}{#2}
+    }
+}
+
+\newcommand{\addChapterToTOC}[1]{\manualTOCEntry{chapter}{#1}}
+\newcommand{\addSectionToTOC}[1]{\manualTOCEntry{section}{#1}}
+
+\newcommand{\manualTOCTableEntry}[1]{
+    \@ifundefined{@disabledTableTOCEntries}{
+        \addChapterToTOC{#1}
+    }{}
+}
+
+
+% TABLE OF CONTENTS, FIGURES AND TABLES
+% ---------------------------
+
+\newcommand{\turnOffTOF}{\xdef\@turnOffTOFDef{~}}
+\newcommand{\turnOffTOT}{\xdef\@turnOffTOTDef{~}}
+\newcommand{\turnOffTOC}{\xdef\@turnOffTOCDef{~}}
+
+\newcommand{\thesisTOF}{
+    \@ifundefined{@turnOffTOFDef}{
+        \iftotalfigures
+            \cleardoublepage
+            \expandafter\manualTOCTableEntry{\listfigurename}
+            \listoffigures
+        \fi
+    }{}
+}
+
+\newcommand{\thesisTOT}{
+    \@ifundefined{@turnOffTOTDef}{
+        \iftotaltables
+            \cleardoublepage
+            \expandafter\manualTOCTableEntry{\listtablename}
+            \listoftables
+        \fi
+    }{}
+}
+
+\newcommand{\thesisTOC}{
+    \@ifundefined{@turnOffTOCDef}{\tableofcontents}{}
+}
+
+\newcommand{\thesisTables}{
+    \cleardoublepage
+    \renewcommand{\contentsname}{Table of Contents}
+    \setcounter{tocdepth}{3}
+    {\setstretch{1.25}
+        \thesisTOT
+        \thesisTOF
+        \thesisTOC
+        
+        % This adds the TOC to the TOC. If you don't want the
+        % TOC in the TOC, then uncomment the line below.
+        \expandafter\manualTOCTableEntry{\contentsname}
+    }
+    
+    \setlength{\abovedisplayskip}{1pt}
+    \setlength{\belowdisplayskip}{15pt}
+}
+
+
+
+% ABSTRACT
+% -------------------------
+
+\renewenvironment{abstract}
+    {\cleardoublepage
+     \addChapterToTOC{Abstract}
+     \chapter*{\abstractname}
+    }
+    {}
+
+
+
+
+% ACKNOWLEDGEMENTS
+% ----------------
+
+\newenvironment{acknowledgements}
+    {\cleardoublepage
+     \addChapterToTOC{Acknowledgements}
+     \chapter*{Acknowledgements}
+    }
+    {}
 
 
 
@@ -130,18 +300,15 @@
     % Set margins for the rest of the thesis. UoL guidelines 
     % state that: [left >= 40mm], [others >= 15mm]
     \newgeometry{
-        %nohead, 
-        headheight=5cm,
-        headsep=0.5cm,
-        footskip=1cm,
-        top=25mm,
-        bottom=2.5cm,
+        nohead, 
+        top=15mm,
+        bottom=25mm,
         right=25mm,
         left=40mm,
         marginparwidth=0cm,
         marginparsep=0cm
     }
-    
+
     % Set spacing and reset numbering
     \pagenumbering{roman}
             
@@ -152,6 +319,109 @@
     \displaywidowpenalty = 10000
 }
 
+
+
+
+
+
+
+
+
+% TITLE PAGE
+% -------------
+
+
+% Print out submission text
+\newcommand{\submissionStatement}{
+    \setstretch{1.25}
+    \@ifundefined{@submissiontext}{Submitted in partial satisfaction of the requirements for the \\Degree of \@degree \\ in \@programme}{\@submissiontext}
+}
+
+% Command to override thesis submission text
+\newcommand{\thesisSubmissionText}[1]{\xdef\@submissiontext{#1}}
+
+% Print out supervisors
+\newcommand{\printSupervisor}{
+    %{\footnotesize \textit{Supervisor}~\@supervisor }
+    %\@ifundefined{@secondsupervisor}{}
+    %{\footnotesize \textit{Second Supervisor}~\@secondsupervisor }
+    
+    \footnotesize\begin{tabular}{rl}
+        \@ifundefined{@supervisor}{}
+        {\textit{Supervisor} & \@supervisor \\}
+        
+        \@ifundefined{@secondsupervisor}{}
+        {\textit{Second Supervisor} & \@secondsupervisor \\}
+        
+        \@ifundefined{@thirdsupervisor}{}
+        {\textit{Third Supervisor} & \@thirdsupervisor }
+    \end{tabular}
+}
+
+% The default title page: title, then logo, then author
+\newcommand{\@titlepage}{
+    \begin{titlepage}
+
+    % Make the title
+    \makeatletter
+    \centering{\LARGE \@title \par} \vspace{1.5cm}
+    
+    % Make the logo
+    \includegraphics[height=1.5in]{\@logo}\par 
+    
+    % Some space, then the author, then the school and university
+    % name
+    \vspace{1.5cm}
+    {\large \@author \@ifundefined{@studentnumber}{}{\\ \@studentnumber} \par}\vspace{0.45cm}
+    {\footnotesize \@schoolname \\ \vspace{0.25cm} \@collegename \\  \vspace{0.25cm}  \@universityname \par}
+    
+    % Some space and the submission statement
+    \vspace{3cm}
+    {\footnotesize \submissionStatement \par}
+    
+    % Print out the supervisor
+    \vspace{1cm}
+    \printSupervisor
+    
+    % Then the fancy date!
+    \vspace{1cm}
+    {\footnotesize \@ifundefined{@modulecode}{}{\@modulecode \\} \@date \par}
+    
+	\end{titlepage}
+}
+
+% The alternate title page: logo, then title, then author
+\def \@altTitlePage {
+    \begin{titlepage}
+    
+    % Make the logo
+    \makeatletter
+    \centering\includegraphics[height=1.5in]{\@logo}\par 
+    
+    % Make the title
+    \vspace{2cm}
+    {\LARGE \@title\par}
+    
+    % Some space, then the author, then the school and university
+    % name
+    \vspace{1.5cm}
+    {\large \@author \par}\vspace{0.45cm}
+    {\footnotesize \@schoolname \\ \vspace{0.25cm} \@collegename \\  \vspace{0.25cm}  \@universityname \par}
+    
+    % Some space and the submission statement
+    \vspace{2.5cm}
+    {\footnotesize \submissionStatement \par}
+    
+    % Print out the supervisor
+    \vspace{1cm}
+    \printSupervisor
+    
+    % Then the fancy date!
+    \vspace{1cm}
+    {\footnotesize \@date \par}
+    
+	\end{titlepage}
+}
 
 \newcommand{\beforeTitlePage}{
     % Set margins for the rest of the thesis. UoL guidelines 
@@ -168,50 +438,6 @@
 }
 
 
-
-% Print out submission text
-\newcommand{\submissionStatement}{
-    \setstretch{1.25}
-    \@ifundefined{@submissiontext}{Submitted in partial satisfaction of the requirements for the \\degree of \\ 
-        \vspace{1cm}\@degree~\@programme}{\@submissiontext}
-}
-
-% The default title page: title, then logo, then author
-\newcommand{\@titlepage}{
-    \begin{titlepage}
-    \topskip0pt
-    \vspace*{\fill}
-
-    % Make the title
-    \makeatletter
-    \centering{\LARGE \@title \par} \vspace{1.5cm}
-    
-    % Make the logo
-    \includegraphics[height=1.5in]{\@logo}\par 
-    
-    % Some space, then the author, then the school and university
-    % name
-    \vspace{1.5cm}
-    {\large \@author \@ifundefined{@studentnumber}{}{\\ \vspace{0.25cm} \@studentnumber} \par}\vspace{0.45cm}
-
-    % Some space and the submission statement
-    {\vspace{1cm}}
-    {\footnotesize \submissionStatement \par}
-
-    {\footnotesize \@schoolname \\  \vspace{0.25cm}  \@universityname \par}
-
-    % Print out the supervisor
-    \vspace{1cm}
-    
-    % Then the fancy date!
-    {\footnotesize \@ifundefined{@modulecode}{}{\@modulecode \\} \@date \par}
-    \vspace*{\fill}
-    %
-	\end{titlepage}
-}
-
-
-
 % The default title page style is the title, logo, author style
 \def \@defaultTitlePage {\@titlepage}
 
@@ -224,11 +450,11 @@
   \beforeTitlePage
   
   % Then check which title page style to use
- % \IfNoValueTF{#1}
+  \IfNoValueTF{#1}
     {\@defaultTitlePage}
-    %{\ifthenelse{\equal{#1}{logo-first}}
-      %  {\@altTitlePage}
-       % {\@defaultTitlePage}}
+    {\ifthenelse{\equal{#1}{logo-first}}
+        {\@altTitlePage}
+        {\@defaultTitlePage}}
     
   % Call function for after title page       
   \afterTitlePage
@@ -237,100 +463,24 @@
 
 
 
-% ACKNOWLEDGEMENTS
-% ----------------
-
-\newenvironment{acknowledgements}
-    {\cleardoublepage
-     \chapter*{Acknowledgements}
-    }
-    {}
-    
-    
-    
-
-% ABSTRACT
-% -------------------------
-
-\renewenvironment{abstract}
-    {\cleardoublepage
-     \chapter*{\abstractname}
-    }
-    {}
-    
-    
-% TABLE OF CONTENTS, FIGURES AND TABLES
-% ---------------------------
-
-\newcommand{\thesisTOF}{
-    \iftotalfigures
-        \cleardoublepage
-        \listoffigures
-    \fi
-}
-
-\newcommand{\thesisTOT}{
-    \iftotaltables
-        \cleardoublepage
-        \listoftables
-    \fi
-}
-
-\newcommand{\thesisTables}{
-    \cleardoublepage
-    \renewcommand{\contentsname}{Table of Contents}
-    \setcounter{tocdepth}{3}
-    {\setstretch{1.25}
-        \tableofcontents
-        \thesisTOF
-        \thesisTOT
-    }
-    
-    \setlength{\abovedisplayskip}{1pt}
-    \setlength{\belowdisplayskip}{15pt}
-}
 
 
+% TITLE / CHAPTERS / FIGURES / TITLESEC SPACING
+% ---------------------------------------------
 
+% Set the chapter title style
+\titleformat{\chapter}[display]
+{\normalfont\huge\bfseries}{\chaptertitlename\ \thechapter}{0pt}{\Huge}
 
-% START OF THESIS
-% --------------
+% And space it out a bit
+\titlespacing*{\chapter} {0pt}{0pt}{20mm}
 
-\fancypagestyle{plain}{
-    \renewcommand{\headrulewidth}{0pt}%
-    \fancyhf{}%
-    \fancyfoot[R]{\footnotesize\textbf{\thepage}}%    
-    
-    \@ifundefined{@headerturnoff}{
-        \fancyhead[R]{\footnotesize \textit{\@headercontents}}
-	    \fancyfoot[L]{\footnotesize \textit{\@author~(\@studentnumber)}}
-    }{}
-}
-
-
-\fancypagestyle{mainStyle}{
-	\renewcommand{\headrulewidth}{0pt}%
-	\fancyhf{}%
-	\fancyfoot[R]{\footnotesize\emph{\leftmark} \hspace{0.25cm} \footnotesize\textbf{\thepage}}%   
-
-
-	\fancyhead[R]{\footnotesize\textit{\@headercontents}}
-	\fancyfoot[L]{\footnotesize \textit{\@author~(\@studentnumber)}}
-}
-
-\newcommand{\thesisBodyStart}{
-
-    % Have we turned off headers? If so, kill the foot + head
-    \@ifundefined{@headerturnoff}{}{
-        \fancyfoot[L]{~}
-        \fancyhead[R]{~}
-    }
-    
-    % Clear the page so we don't number the last page
-    \cleardoublepage
-    
-    % Set page numbering back to 1, 2, 3 .. 
-    \pagenumbering{arabic} 
+% A fake chapter title command to emulate chapter titles
+% without actually adding a chapter
+\newcommand{\chapterTitle}[1]{
+	\vspace*{-20mm} 
+	{\normalfont\huge\bfseries#1 \par} 
+	\vspace*{20mm}
 }
 
 
@@ -358,8 +508,26 @@
     ]{biblatex}
 }
 
-% Import it
-\@importHarvard
+% Otherwise use ieee's style and numeric citation
+\def\@importBibLaTeX {
+    \RequirePackage[
+        defernumbers=true,
+        backend=biber,
+        bibencoding=utf8,
+        natbib=true,
+        hyperref=true,
+        backref=true,
+        urldate=long,
+        style=ieee,
+        citestyle=numeric,
+        sorting=nyt
+    ]{biblatex}
+}
+
+% Import harvard if [harvard] is specified, otherwise
+% standard biblatex!
+\ifClassOptionElse[harvard]{\@importHarvard}{\@importBibLaTeX}
+
 
 % Command for printing out references list
 \newcommand{\printReferences}[1][References]{
@@ -375,25 +543,6 @@
 }
 
 
-% TITLE / CHAPTERS / FIGURES / TITLESEC SPACING
-% ---------------------------------------------
-
-% Set the chapter title style
-\titleformat{\chapter}[display]
-{\normalfont\huge\bfseries}{\chaptertitlename\ \thechapter}{0pt}{\Huge}
-
-% And space it out a bit
-\titlespacing*{\chapter} {0pt}{0pt}{20mm}
-
-% A fake chapter title command to emulate chapter titles
-% without actually adding a chapter
-\newcommand{\chapterTitle}[1]{
-	\vspace*{-20mm} 
-	{\normalfont\huge\bfseries#1 \par} 
-	\vspace*{20mm}
-}
-
-\titleformat{\section}{\normalfont\Large\bfseries}{\thesection}{1em}{\setstretch{0.5}}
 
 
 
@@ -473,9 +622,6 @@
 }{
         \vspace*{\fill}
 }
-
-
-
 
 
 % Set the page style to the main style. Set up the chapter
