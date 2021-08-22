@@ -1,5 +1,13 @@
-\documentclass{lincolncsuthesis}
+%% Benjamin Williams <bwilliams@lincoln.ac.uk>
+%% Get in touch if you have any questions or problems!
+%% University of Lincoln Computer Science Thesis Template
 
+%% @version     1.0.7
+%% @lastchanged 26/04/2021
+
+% The document class -- remove [harvard] if you want
+% numeric-style referencing.
+\documentclass[harvard]{lincolncsuthesis}
 % Packages you want to use
 \input{preamble/packages.tex}
 
@@ -8,24 +16,22 @@
 
 % Your thesis details -- edit the file at the path below
 % so it shows your name, title, etc. 
-\input{preamble/details}
-\title{SLAM - Implementation and Benchmarking}
-\author{Mangal Deep .B.M}
+\input{preamble/details.tex}
 
 \begin{document}
 
 % First, make the title
-\maketitle{}
+\maketitle
 
 % Input anything that can go before the acknowledgements 
-\input{chapters/0_blank-pages.tex}
+%\input{chapters/0_blank-pages.tex}
 
 
 % Then the abstract
-\input{chapters/1_abstract}
+\input{chapters/1_abstract.tex}
 
 % Then the acknowledgements
-\input{chapters/2_acknowledgements}
+%\input{chapters/2_acknowledgements}
 
 % Print out the table of tables and table of figures and
 % tell the template we're about to start the body of the
@@ -39,32 +45,32 @@
 
 % Include introduction
 \chapter{Introduction}
-\input{chapters/5_introduction}
+\input{chapters/5_introduction.tex}
 
 % Literature review / Background / Related work
 \chapter{Literature review}
-\input{chapters/6_literature-review}
+\input{chapters/6_literature-review.tex}
 
 % SLAM Formulation + State Prediction and correction
 \chapter{Formulation}
-\input{chapters/7_formulation}
+\input{chapters/7_formulation.tex}
 
 \chapter{Particle Filter}
-\input{chapters/8_particlefilterapproach}
+\input{chapters/8_particlefilterapproach.tex}
 
 \chapter{Scan Matching}
-\input{chapters/9_scanmatching}
+\input{chapters/9_scanmatching.tex}
 
-\chapter{Comaprison and Benchmarking}
-\input{chapters/10_benchmarking}
+\chapter{Comparison and Benchmarking}
+\input{chapters/10_benchmarking.tex}
 
 % Conclusions / Findings
 \chapter{Conclusions}
-\input{chapters/11_conclusions}
+\input{chapters/11_conclusions.tex}
 
 % Reflective analysis
 \chapter{Reflective Analysis}
-\input{chapters/reflective-analysis}
+\input{chapters/reflective-analysis.tex}
 
 
 
@@ -74,10 +80,7 @@
 % --------------------------
 % Print out the references
 \printReferences
-\printbibliography
 % Appendices: feel free to comment these out if you are 
 % not going to use them.
-\include{chapters/appendices}
-
-
+%\include{chapters/appendices.tex}
 \end{document}

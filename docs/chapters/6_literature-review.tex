@@ -1,25 +1,31 @@
 % General Literature introduction
-    The state of a robot such as postion, orientation, velocity, acceleration, parameters or even a map, is critical to get the accurate results.Needless to mention, the more information the robot
-    knows about itself, the solution to find the unknowns becomes easier. In the context of SLAM , the pose information and the Map of the environment are the states of absolute intrest. Given the
-    high precision pose information of the robot, then the problem simplifies to Mapping of the environment with known poses.Here the state of intrest is only Map which does not even require state 
-    estimation rather use the avaialble Mapping algorithm to draw the Map of the environment. On the other hand, given the Map of the environment, then the problem reduces to localization problem 
-    with data association in certain cases. Here the state of intrest is Pose and the correspondence term. A survey on various \textit{SLAM} methods were presented by \cite{C.Cadena} and \cite{T.Takleh}
-    According to \cite{C.Cadena}, the history of SLAM is broadly classified into \textit{classical age} consiting of \textit{Extended Kalman Filter (EKF)} methods, \textit{Rao-Blackwellized Particle Filter (RBPF)} methods
-    and \textit{Maximum Likelihood Estimation}. Followed by \textit{algorithmic-analysis age} which predominantly studied the Observability, convergence and consistency of SLAM, leading to efficient SLAM Solvers and
-    many open source libraries.Followed by \textit{robust-perception age} which focuses on Robust performance, Resource awareness, high level understanding and Task-Driven perception.Finally In my 
-    perspective, With the development and uprise in the application of Deep Learning techniques in SLAM, It would be suitable to term the current trend as \textit{Machine Learning era of SLAM}
+    The state of a robot such as position, orientation, velocity, acceleration, parameters or even a map, is critical to get accurate results. 
+    Needless to mention, the more information the robot knows about itself, the solution to find unknowns becomes easier. 
+    In the context of SLAM, pose information and the map of the environment are the states of absolute interest. 
+    Given the high precision pose information of the robot, then the problem simplifies to mapping of the environment with known pose.Here the state of interest is 
+    only the map which does not even require state estimation rather use the available mapping algorithm to draw the Map of the environment. 
+    On the other hand, given the Map of the environment, then the problem reduces to localization problem with data association in certain cases. 
+    Here the state of interest is pose and the correspondence for data association. A survey on various \textit{SLAM} methods were presented by 
+    \cite{C.Cadena} and \cite{T.Takleh}. According to \cite{C.Cadena}, the history of SLAM is broadly classified into \textit{classical age} 
+    consisting of \textit{Extended Kalman Filter (EKF)} methods, \textit{Rao-Blackwellized Particle Filter (RBPF)} methods and \textit{Maximum Likelihood Estimation}. 
+    Followed by \textit{algorithmic-analysis age} which predominantly studied observability, convergence and consistency of SLAM, 
+    leading to efficient SLAM solvers and many open source libraries. Followed by \textit{robust-perception age} which focuses on robust performance, 
+    Resource awareness, high level understanding and task-driven perception.Finally in my perspective, with the development and up-rise in the application of 
+    Deep Learning techniques in SLAM, it would be suitable to term the current trend as \textit{Machine Learning era of SLAM}
 
 % SLAM - Kalman Filter based
     In the beginning, hardware capabilities were very less and compute power embedded in mobile robots were limited to fewer processes at an instance. Hence the choice of sensors to be mounted on 
     the robots were very critical. Historically the very first feasible solution to the SLAM problem proposed the use of Extended Kalman Filters(EKFs) by estimating the joint posterior distribution 
     over pose of the robot and the landmark positions.Kalman Filters are widely used state estimators but are limited to linear system and works on the assumption of Gaussian distribution of data.
     Therefore they cannot be directly applied to solve the non-linear SLAM problems. By linearizing the data at the mean of the distribution it is possible to approximate the solution, the Extended
-    Kalman Filter works on this principle. The state estimate and the associated uncertainity are provided by the mean and covariance matrix of the posterior of the joint probability. 
-    However the odometric drift observed by the robot seems to hold down the accuracy of the posteriror estimate.\cite{J.Kang} proposed  modified 
+    Kalman Filter works on this principle. The state estimate and the associated uncertainty are provided by the mean and covariance matrix of the posterior of the joint probability. 
+    However the odometric drift observed by the robot seems to hold down the accuracy of the posterior estimate.\cite{J.Kang} proposed  modified 
     Neural Network aided EKF (mNNEKF) to improve the accuracy of the estimate by compensating for odometric error of the robot using Neural Network. This method claims to work well even under
     colored noise and systematic bias error.
 % SLAM - Particle Filter based
 
+
+% SM - ICP
 % SLAM - Graph Network based
 
 % SLAM - Neural Network based

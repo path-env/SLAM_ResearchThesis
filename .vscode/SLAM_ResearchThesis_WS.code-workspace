@@ -12,6 +12,9 @@
 		],
 		"python.analysis.extraPaths": [
 			".."
+		],
+		"latex-workshop.latex.bibDirs": [
+			"/home/mangaldeep/workspace/SLAM_ResearchThesis/docs/bib"
 		]
 	},
 	"launch": {
