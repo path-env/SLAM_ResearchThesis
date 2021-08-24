@@ -1,5 +1,5 @@
  %%
- %% lincolncsuthesis.cls
+ %% lincolncsthesis.cls
  %% Copyright (c) 2021 Benjamin Williams <bwilliams@lincoln.ac.uk>
  %%
  %% A LaTeX template for typesetting research degree theses
@@ -54,7 +54,7 @@
 \def\lxdef{\long\xdef}
 
 % This class name
-\def\@classname {lincolncsuthesis}
+\def\@classname {lincolncsthesis}
 
 
 
@@ -113,10 +113,7 @@
 \RequirePackage{datetime2}
 \RequirePackage{fancyhdr}
 \RequirePackage{lmodern}
-\RequirePackage[backend=biber,
-style=apa,
-citestyle=authoryear
-]{biblatex}
+
 
 
 
@@ -252,10 +249,9 @@ citestyle=authoryear
     \renewcommand{\contentsname}{Table of Contents}
     \setcounter{tocdepth}{3}
     {\setstretch{1.25}
+        \thesisTOC
         \thesisTOT
         \thesisTOF
-        \thesisTOC
-        
         % This adds the TOC to the TOC. If you don't want the
         % TOC in the TOC, then uncomment the line below.
         \expandafter\manualTOCTableEntry{\contentsname}
