@@ -74,7 +74,7 @@ def ROS_bag_run():
             Gps_avail ,Imu_avail,Lidar_avail ,Odom_avail,Vel_avail,veh_info = 0, 0,0,0,0,1
             
         if  topic == '/carla/ego_vehicle/vehicle_status': 
-            Meas_X_t['v'] = msg.velocity
+            Meas_X_t['v'] = msg.velocity + np.random.randn()*0.01
             Meas_X_t['acc'] = -1*np.sqrt(msg.acceleration.linear.x**2 +  msg.acceleration.linear.y**2 +msg.acceleration.linear.z**2)
             Meas_X_t['steer'] = msg.control.steer * max_steering_angle # on a scale [-1,1] of max_steering_angle
             Vel_avail =1
@@ -129,16 +129,16 @@ def ROS_bag_run():
             logger.info(f"Lidar pointcloud for {t.to_sec()} extracted")
 
         if Imu_avail and Gps_avail and Odom_avail and Lidar_avail and Vel_avail and veh_info: 
-            plotter.set_groundtruth(GPS_Z_t, IMU_Z_t, Meas_X_t)
             # writer.writerow([Meas_X_t['t'], Meas_X_t['x'],Meas_X_t['y'], Meas_X_t['yaw'], Meas_X_t['v'], Meas_X_t['acc'], Meas_X_t['steer'], GPS_Z_t['lat'],
             #     GPS_Z_t['long'], GPS_Z_t['alt'], IMU_Z_t['roll'], IMU_Z_t['pitch'],  IMU_Z_t['yaw'] ,IMU_Z_t['ang_vel'] ])
-            #if (Meas_X_t['v']>0.01 or Meas_X_t['v'] <-0.01):
+            if (Meas_X_t['v']>0.01 or Meas_X_t['v'] <-0.01):
+                plotter.set_groundtruth(GPS_Z_t, IMU_Z_t, Meas_X_t)
             ##  Graph Based    
             # slam_obj.create_graph(Meas_X_t , Meas_Z_t )
 
-            ## Particle Based
-            # print(Meas_X_t['t'], Meas_Z_t['t'], GPS_Z_t['t'], IMU_Z_t['t'])
-            slam_obj.run(Meas_X_t,Meas_Z_t, GPS_Z_t,IMU_Z_t)
+                ## Particle Based
+                # print(Meas_X_t['t'], Meas_Z_t['t'], GPS_Z_t['t'], IMU_Z_t['t'])
+                slam_obj.run(Meas_X_t,Meas_Z_t, GPS_Z_t,IMU_Z_t)
 
             #slam_obj.run(Meas_X_t_1,Meas_X_t,Meas_Z_t)
 

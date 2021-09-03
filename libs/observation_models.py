@@ -53,18 +53,25 @@ def CoordinateTransform_t_1(Meas_Z_t,Meas_X_t,Meas_X_t_1):
     trans_Z_t['z'] = Meas_Z_t['z'].to_numpy()
     return trans_Z_t    
 
-def Likelihood_Field_Observation_Model(Meas_Z_t , Est_X_t ,MapIdx_G ,z_hit = 0.5 ,sigma= 0.2, z_random=0.05 , z_max= 0.05):
+def Likelihood_Field_Observation_Model(Meas_Z_t , Est_X_t ,MapIdx_G,z_hit = 0.5 ,sigma= 0.05, z_random=0.05 , z_max= 0.05):
     likly = 1
     range = Meas_Z_t[4,:]
-    idx= np.where(range < 50)[0]
+    idx= np.where(range < 35)[0]
     Meas_Z_t = Meas_Z_t[:2,idx]
-    Meas_Z_t_G = rotate(Est_X_t[2])@ Meas_Z_t + Est_X_t[:2].reshape(2,-1)
-
+    # to align with the map representation
+    Meas_Z_t = rotate(90) @ Meas_Z_t
+    Meas_Z_t = np.array([[-1,0],[0,1]]) @ Meas_Z_t
+    Meas_Z_t_G = rotate(Est_X_t[2])@ Meas_Z_t + Est_X_t[:2].reshape(2,-1) + 35
+    Meas_Z_t_G[1,:] = Meas_Z_t_G[1,:] +100
+    # range = Meas_Z_t_1[4,:]
+    # idx= np.where(range < 35)[0]
+    # Meas_Z_t_1 = Meas_Z_t_1[:2,idx] 
+    # Meas_Z_t_1_G = rotate(Est_X_t_1[2])@ Meas_Z_t_1 + Est_X_t_1[:2].reshape(2,-1)
     # Extract the Map Indices
     # Map = Map_obj.getOccIndies_G()
     nbrs = NearestNeighbors(n_neighbors=1, algorithm='auto').fit(MapIdx_G.T)
     dist, Colidx = nbrs.kneighbors(Meas_Z_t_G.T)
-    dist = dist[dist<dist.mean()]
+    # dist = dist[dist<dist.mean()]
     # print(dist.mean())
     for d in dist:
         likly = likly*( z_hit*Prob_Gaus_dist(d,sigma**2) + (z_random/z_max))   

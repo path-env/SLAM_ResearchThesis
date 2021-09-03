@@ -10,7 +10,7 @@
 
     "cSpell.enabled": true,
     "editor.cursorBlinking": "solid",
-    "editor.wordWrap": "on",
+    "editor.wordWrap": "off",
     "editor.wordWrapColumn": 80,
     "editor.wrappingIndent": "same",
     "latex-workshop.debug.showUpdateMessage": false,

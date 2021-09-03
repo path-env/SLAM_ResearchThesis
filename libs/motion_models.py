@@ -134,7 +134,7 @@ def CTRA_Motion_Model(Est, cmdIn,dt,y_dot_tolerance=1):
         
     Est_X_k['x'] =      Meas_X_k_1['x'] + del_x -  Sample_Gaus_dist( a1* cmdIn[0]**2  + a2*cmdIn[1]**2 )   
     Est_X_k['y'] =      Meas_X_k_1['y'] + del_y - Sample_Gaus_dist( a1* cmdIn[0]**2  + a2*cmdIn[1]**2 )
-    Est_X_k['yaw'] =    np.rad2deg(Est_X_k['yaw']) #-Sample_Gaus_dist( a3* cmdIn[0]**2  + a4*cmdIn[1]**2 )
+    Est_X_k['yaw'] =    np.rad2deg(Est_X_k['yaw']) -Sample_Gaus_dist( a3* cmdIn[0]**2  + a4*cmdIn[1]**2 )
     Est_X_k['acc'] =    cmdIn[1]
 
     # Compute Probability of being in the state with the applied cmdIn

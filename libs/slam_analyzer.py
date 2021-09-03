@@ -49,7 +49,7 @@ class Analyze:
         
         #prediction
         self.axs[0,1].plot(self.predict_x,self.predict_y,'b.' ,label='predicted', markersize=1)
-        self.axs[0,1].plot(self.odom_x, self.odom_y, 'k*', label='Odom', markersize=1)
+        self.axs[0,1].plot(self.odom_x[1:], self.odom_y[1:], 'k*', label='Odom', markersize=1)
         #correction
         self.axs[0,1].plot(self.corrected_x, self.corrected_y, 'r+',label='corrected', markersize=1)
 
@@ -93,7 +93,7 @@ class Analyze:
         self.axs[1,0].set_title('GT_SteeringAngle')
         self.axs[1,0].grid('on')
         self.axs[1,0].set_ylabel('degrees')
-        self.axs[1,0].plot([],[],'b.',label='steer', markersize=1)
+        self.axs[1,0].plot([],[],'b.',label='predicted', markersize=1)
         #self.axs[1,0].legend(loc='best')
         
         self.axs[1,1].grid('on')
@@ -103,6 +103,7 @@ class Analyze:
         #self.axs[1,1].scatter(self.predict_yaw,'r.' ,label='predicted', markersize=1)
         self.axs[1,1].plot([],[], 'k*', label='Odom', markersize=1)
         self.axs[1,1].plot([],[],'r+',label='corrected', markersize=1)
+        self.axs[1,1].plot([],[],'b.',label='predicted', markersize=1)
         
         #Vel
         self.axs[0,2].grid('on')

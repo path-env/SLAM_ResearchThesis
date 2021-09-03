@@ -10,6 +10,7 @@ from pathlib import Path
 sys.path[0] = str(Path(sys.path[0]).parent)
 
 import numpy as np
+# np.seterr(all = "raise") 
 import pandas as pd
 
 from libs.remove_ground_plane import Zbased, RANSAC
@@ -48,7 +49,11 @@ def Lidar_3D_Preprocessing(Meas_Z_t):
     return Meas_Z_t
 
 def normalize(arr):
-    return np.array([(x - np.min(arr))/ (np.max(arr) - np.min(arr)) for x in arr])
+    if (np.max(arr) - np.min(arr)) !=0:
+        ans = [(x - np.min(arr))/ (np.max(arr) - np.min(arr)) for x in arr]
+    else:
+        ans = arr
+    return ans
 
 def softmax(arr):
     return np.exp(arr)/ np.sum(np.exp(arr))
@@ -65,7 +70,7 @@ def TransMatrix(T, orientation):
 
 def poseComposition(P1, P2):
     Pose1 = TransMatrix(P1[:2], P1[2])
-    Pose2 = TransMatrix(P2[:2], -P2[2])
+    Pose2 = TransMatrix(P2[:2], P2[2])
     P = Pose1 @ Pose2
     Trans_Lst = np.append(P[:2,2],np.rad2deg(np.arctan2(P[1,0],P[0,0])))
     return Trans_Lst

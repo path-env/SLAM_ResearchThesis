@@ -416,7 +416,7 @@ class ICP():
         # if np.mean(dist)>5:
         #     print(np.mean(dist)
         # print(f"distance mean:{dist.mean()}, max:{dist.max()}")
-        p1_Idx,_ = np.where(dist<= tolerance) # ICP LS = 0.5
+        p1_Idx,_ = np.where(dist<= tolerance) # ICP LS = 0.5,0.1
         p2_Idx = p2_Idx[p1_Idx].flatten() #Use the closest point
         dist = dist[p1_Idx].flatten()
         weights = np.array([1])
@@ -450,9 +450,9 @@ class ICP():
         dy, dx = delta_change[1], delta_change[0]
 
     def subsample(self,Meas_Z_t, Meas_Z_t_1):
-        Meas_Z_t = np.round(Meas_Z_t,2)
+        # Meas_Z_t = np.round(Meas_Z_t,5)
         Meas_Z_t = np.unique(Meas_Z_t, axis=1)
-        Meas_Z_t_1 = np.round(Meas_Z_t_1,2)
+        # Meas_Z_t_1 = np.round(Meas_Z_t_1,5)
         Meas_Z_t_1 = np.unique(Meas_Z_t_1, axis=1)
         x1,x2 = Meas_Z_t_1.shape[1], Meas_Z_t.shape[1]
         P2, P1  = Meas_Z_t[:,0:min(x1,x2)],Meas_Z_t_1[:,0:min(x1,x2)]
@@ -465,14 +465,14 @@ class ICP():
         # weights = np.array([1])
         return weights
 
-    def match_SVD(self,Meas_Z_t,Meas_Z_t_1,Est_X_t,Est_X_t_1,Iter = 400,threshold = 0.000001, Mode = 'GT'):
+    def match_SVD(self,Meas_Z_t,Meas_Z_t_1,Est_X_t,Est_X_t_1,Iter = 100,threshold = 0.000001, Mode = 'GT'):
         Meas_Z_t = Meas_Z_t[[0,1],:]
         Meas_Z_t_1 = Meas_Z_t_1[[0,1],:]
         # if Meas_Z_t.shape != Meas_Z_t_1.shape:
         #     lt = min(Meas_Z_t_1.shape[1], Meas_Z_t.shape[1] )
         #     Meas_Z_t_1 = Meas_Z_t_1[:,0:lt]
         #     Meas_Z_t = Meas_Z_t[:,0:lt]      
-        prev_error = 0
+        prev_error,bound = 0, 1
         alignmenterr = 10000
         loop_cnt = 0
         # Transform to the estimated pose
@@ -485,8 +485,9 @@ class ICP():
         try:
             while np.any(np.abs(prev_error - alignmenterr) > threshold):
                 prev_error = alignmenterr
+                # bound = max(0.1,bound*np.exp(-0.1*loop_cnt))
                 # Meas_Z_t, Meas_Z_t_1 = self.subsample(Meas_Z_t, Meas_Z_t_1)
-                p2,p1, weights =self._closestPtCorrespondence(Meas_Z_t, Meas_Z_t_1, Est_X_t)
+                p2,p1, weights =self._closestPtCorrespondence(Meas_Z_t, Meas_Z_t_1,bound)
                 R,T,orientation,alignmenterr,_,_,_,_,p_1mean,p_mean = self._compute_T_R(p2,p1, weights)                
                 Meas_Z_t_1 = (R @ (Meas_Z_t_1[:,:]- p_mean) )+p_1mean  
                 loop_cnt +=1
@@ -497,7 +498,7 @@ class ICP():
             #     #print(f"Error beyond threshold @ {alignmenterr}")
             #     alignmenterr = None
             RelativeTrans = {'r':R,'T':T , 'yaw':orientation,'error':alignmenterr}
-            R,T,orientation,error,_,_,_,_,_,_ = self._compute_T_R(Meas_Z_t_1,actMeas, weights)
+            R,T,orientation,error,_,_,_,_,_,_ = self._compute_T_R(actMeas,Meas_Z_t_1, weights)
             Trans_Lst = np.append(T,orientation)
             if Mode == 'GT':
                 Trans_Lst = poseComposition(Est_X_t_1, Trans_Lst)
@@ -506,24 +507,25 @@ class ICP():
         except Exception as e:
             print(e)
 
-    def match_LS(self,Meas_Z_t,Meas_Z_t_1,Est_X_t,Est_X_t_1,Iter = 40,threshold = 0.00001, Mode = 'GT'):
+    def match_LS(self,Meas_Z_t,Meas_Z_t_1,Est_X_t,Est_X_t_1,Iter = 100,threshold = 0.000001, Mode = 'GT'):
         # Using Gausss Newton approximation
         chi2_lst, X_lst = [], []
-        bound = 1
+        bound = 3
         del_x = np.array([0.,0.,0.]).reshape(3,-1)
-        x = (Est_X_t[:3] - Est_X_t_1[:3]).reshape(3,-1)
-        x[2] = np.deg2rad(x[2])
-        init_est = x.copy()
-        # x = np.array([0.,0.,0.]).reshape(3,-1)
+        # del_x = (Est_X_t[:3] - Est_X_t_1[:3]).reshape(3,-1)
+        # del_x[2] = np.deg2rad(del_x[2])
+        init_est = del_x.copy()
+        x =  np.array([0.,0.,0.]).reshape(3,-1)
         p2, p1 =(Meas_Z_t[0:2,:], Meas_Z_t_1[0:2,:])
         # p2 = rotate(Est_X_t[2])@p2 + Est_X_t[0:2].reshape(2,-1)
         # p1 = rotate(Est_X_t_1[2])@p1 + Est_X_t_1[0:2].reshape(2,-1)
         P2, P1 = self.subsample(p2, p1)
+        P1_org = P1.copy()
         for t in range(Iter):
             chi2,deg_x = 0, np.rad2deg(x[2])
             # Apply transformation on pointcloud
-            P1 = rotate(deg_x)@P1 + x[0:2]
-            bound = max(0.1,bound*np.exp(-0.1*t))
+            P1 = rotate(deg_x)@P1_org + x[0:2]
+            # bound = max(0.1,bound*np.exp(-0.1*t))
             p2, p1, weights =self._closestPtCorrespondence(P2, P1 ,bound)
             # p2, p1, weights =self._matchRangePtCorrespondence(p2, p1,bound)
             if p2.shape[1]==0:
@@ -536,8 +538,8 @@ class ICP():
             b = np.zeros((3,1))
             e = p1[:2,:] - p2[:2,:]
             J[0,0,:] , J[1,1,:] =1,1
-            J[0,2,:] = -np.sin(deg_x)*p1[0,:] - np.cos(deg_x)*p1[1,:] 
-            J[1,2,:] = np.cos(deg_x)*p1[0,:]  + np.sin(deg_x)*p1[1,:] 
+            J[0,2,:] = -np.sin(x[2])*p1[0,:] - np.cos(x[2])*p1[1,:] 
+            J[1,2,:] = np.cos(x[2])*p1[0,:]  - np.sin(x[2])*p1[1,:] 
             for j in range(p1.shape[1]):
                 H += J[:,:,j].T @ J[:,:,j]
                 b += J[:,:,j].T @ e[:,j:j+1]
@@ -552,12 +554,11 @@ class ICP():
             del_x = -np.linalg.inv(H)@b
             x += del_x
             # print(x, chi2)
-            # x[2] = (np.arctan2(np.sin(x[2]), np.cos(x[2])))
             chi2_lst.append(chi2.flatten())
             X_lst.append(x.copy())
         X_lst = np.array(X_lst)
         minIndx,_ = np.where(chi2_lst==min(chi2_lst))
-        Trans_Lst = X_lst[minIndx+1][0].flatten()
+        Trans_Lst = X_lst[minIndx-1][0].flatten()
         Trans_Lst[2] = np.rad2deg(Trans_Lst[2])
         if Mode == 'GT':
             Trans_Lst = poseComposition(Est_X_t_1, Trans_Lst)   
@@ -595,7 +596,7 @@ class RTCSM():
         
         #Construct Low resolution Map
         LMap = self._lowResMap(HMap, Est_X_t)
-        Updt_X_t, confidence_ = self._search3DMatch( Est_X_t, Est_X_t_1, Meas_Z_t,  HMap, 0.1,mode='L')
+        Updt_X_t, confidence_ = self._search3DMatch( Est_X_t, Est_X_t_1, Meas_Z_t,  LMap, 0.1,mode='L')
         Updt_X_t, confidence = self._search3DMatch(Updt_X_t, Est_X_t_1, Meas_Z_t,  HMap, 0.01, mode= 'H')
         Trans = {'error':confidence, 'T':np.array([Updt_X_t[0], Updt_X_t[1]]).reshape(2,-1), 'yaw':Updt_X_t[2]}
         return Trans
@@ -612,7 +613,7 @@ class RTCSM():
         return Map_confined
 
     def _lowResMap(self,HMap, Est_X_t):
-        LowResol = np.int32(self.OG.Grid_resol/0.01)
+        LowResol = 2#np.int32(self.OG.Grid_resol/0.01)
         Map_X_len, Map_Y_Len = HMap.shape
         LowResolMap = np.zeros(HMap.shape)
         for row in range(0,Map_X_len,LowResol):
@@ -625,7 +626,7 @@ class RTCSM():
         MeasMap = Map
         # create a search space
         if mode == 'L':
-            Numcell = 15 #0.1
+            Numcell = 10 #0.1
         else:
             Numcell = 1 #0.01
             #Numcell = 15
@@ -639,21 +640,20 @@ class RTCSM():
             Ori_search_mask = np.zeros((x.shape[0], x.shape[1]))
         else:
             TargetMap = self.LTgtMap
-            ori_space = np.arange(-5,5,0.1)
+            ori_space = np.arange(-3,3,0.1)
         
             EstDistDrvn = np.sqrt((Est_X_t_1[0] - Est_X_t[0])**2 + (Est_X_t_1[1] - Est_X_t[1])**2 )
-            sq = np.sqrt((x*searchStep)**2 + (y*searchStep)**2)#, dtype=np.float32)
-            rrv = np.abs(sq -EstDistDrvn)
+            Pos_contour = np.abs(np.sqrt((x*searchStep) ** 2 + (y*searchStep) ** 2) - EstDistDrvn)
             # sq[np.where(sq <EstDistDrvn)] = np.ceil(EstDistDrvn)
-            Pos_search_mask = (-(1 / (2 * self.Pos_var**2)) * (sq -EstDistDrvn)**2)
+            Pos_search_mask = (-(1 / (2 * self.Pos_var**2)) * (np.sqrt((x*searchStep) ** 2 + (y*searchStep) ** 2) - (EstDistDrvn)) ** 2)
             # Pos_search_mask = normalize(Pos_search_mask)
-            Pos_search_mask[rrv>EstDistDrvn] = -100
+            Pos_search_mask[Pos_contour>1] = -100
             #Pos_search_mask[Pos_search_mask < -25000] = -10000000
             if np.abs(Est_X_t[2]  - Est_X_t_1[2]) > 1:
-                distv = np.sqrt(x**2 + y**2)
-                distv[distv == 0] = 0.0001
+                distMap = np.sqrt(x**2 + y**2)
+                distMap[distMap == 0] = 0.0001
                 yaw = np.deg2rad(Est_X_t[2]  - Est_X_t_1[2])
-                Ori_search_mask = np.arccos((x* np.cos(yaw) + y* np.sin(yaw)) / distv) 
+                Ori_search_mask = np.arccos((x* np.cos(yaw) + y* np.sin(yaw)) / distMap) 
                 Ori_search_mask = -1 / (2 * self.ori_var ** 2) * np.square(Ori_search_mask)
             else:
                 Ori_search_mask = np.zeros((x.shape[0], x.shape[1]))
@@ -677,10 +677,11 @@ class RTCSM():
             Est[2] = Est_X_t[2] + ori
             #Meas = self._rotate(Est, Meas, searchStep)
             Temp_map = sp.ndimage.rotate(MeasMap, ori , reshape=False, order=3)
-            Temp_map[Temp_map<0.3] = 0 
-            self.OG.PlotMap(Temp_map,Est,'Temp_map',70,70)     
+            Temp_map[Temp_map<0.3] = 0
+            Temp_map_G ,_= self.OG.Lidar2MapFrame( Temp_map , Est_X_t) 
+            # self.OG.PlotMap(Temp_map,Est,'Temp_map',70,70)     
             # m = self.rotate(Est,Meas)
-            MeasIdx = np.asarray(np.where(Temp_map>0))
+            MeasIdx = np.asarray(np.where(Temp_map_G>0))
             XY_Idx = np.unique(MeasIdx, axis=1)
             X_Idx, Y_Idx = XY_Idx[0,:],XY_Idx[1,:]
             # _,Idx = np.unique(XY_Idx[0,:],return_index=True)
@@ -699,26 +700,28 @@ class RTCSM():
             # Debug
             X_Idx = X_Idx.reshape(1, 1, -1) #- self.OG.max_lidar_r
             Y_Idx = Y_Idx.reshape(1, 1, -1) #- self.OG.max_lidar_r
-            X_Idx = (X_Idx + x +Est[0]).astype(int)
-            Y_Idx = (Y_Idx + y +Est[1]).astype(int)
-            convResult = TargetMap[X_Idx, Y_Idx]
+            # Meas = (rotate(Est[2]+90) @ Meas_Z_t[0:2,:]) + translate(Est[0], Est[1]) + self.OG.MapDim
+            X_Idx = (X_Idx + y).astype(int)
+            Y_Idx = (Y_Idx + x).astype(int)
+            convResult = (TargetMap[X_Idx, Y_Idx])
 
             convResultSum = np.sum(convResult, axis=2)
             # convResultSum = normalize(convResultSum)
-            UncrtnMap = convResultSum #+ Mask
+            UncrtnMap = convResultSum + Mask
             theta[i] = Est[2]
             Corr_cost[i] = norm(np.abs(UncrtnMap))
             Corr_Cost_Fn[i,:,:] = UncrtnMap
             # plt.contour(Pos_search_mask)
             # plt.contour(Ori_search_mask)
-            # plt.contourf(UncrtnMap)
+            plt.contourf(UncrtnMap)
+            # plt.colorbar()
             plt.pause(0.001)
         # Find the best voxel in the Low resolution Map
         maxIdx = np.unravel_index(Corr_Cost_Fn.argmax(), Corr_Cost_Fn.shape)
         confidence = np.sum(np.exp(Corr_Cost_Fn))
-        dx, dy, dtheta = Xrange[maxIdx[1]]*searchStep , Yrange[maxIdx[2]]*searchStep, ori_space[maxIdx[0]]
+        dx, dy, dtheta = Xrange[maxIdx[2]]*searchStep , Yrange[maxIdx[1]]*searchStep, ori_space[maxIdx[0]]
         print(dx, dy, dtheta, confidence)
-        Updt_X_t = [Est_X_t[0] + dx, Est_X_t[1] + dy, Est_X_t[2] + dtheta]
+        Updt_X_t = [Est_X_t_1[0] + dx, Est_X_t_1[1] + dy, Est_X_t_1[2] + dtheta]
         return Updt_X_t , confidence
         
     def rotate(self, Est_X, Meas):
@@ -803,13 +806,13 @@ class GO_ICP():
         print(self.go_icp.optimalTranslation())
 
 if __name__ == '__main__':
-    R = 2 # in degress
-    T = np.array([0.5,0]).reshape(2,1)
+    R = -2.2 # in degress
+    T = np.array([1,-1.5]).reshape(2,1)
     Meas_Z_t_1 =np.array([[1,-1],[1,1]],dtype = np.float64)
     Meas_Z_t = np.array([[1,-1],[0,2]],dtype = np.float64)
     Meas_Z_t_1 = np.array([[2,3,-2,-3,-2,-3,2,3],[2,3,2,3,-2,-3,-2,-3]])
     Meas_Z_t = (rotate(R) @ Meas_Z_t_1 ) + T
-    Est_X_t = np.array([1,0.,5],dtype = np.float64)
+    Est_X_t = np.array([1,0.,0.3],dtype = np.float64)
     Est_X_t_1 =np.array([0,0,0],dtype = np.float64)
     SM = ICP()   
-    R,T,orientation,error = SM.match_LS(Meas_Z_t,Meas_Z_t_1,Est_X_t,Est_X_t_1)
+    GT, GT_Lst = SM.match_SVD(Meas_Z_t,Meas_Z_t_1,Est_X_t,Est_X_t_1)

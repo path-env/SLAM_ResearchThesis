@@ -22,16 +22,16 @@ class Gmapping():
         self.particleList  = []
         self.aly = plotter
         self.OG = Map()
-        self.particleCnt =30
+        self.particleCnt =10
         self.parl = Parallel()
         
     def noise_matrix(self, No_sample, var):
         var = np.diag([0.1,0.1,0.1,0.1])
-        noise = np.random.randn(No_sample,1)*0.1
+        noise = np.random.randn(No_sample,1)*0.01
         for _ in range(3):
-            noise = np.hstack((noise, np.random.randn(No_sample,1)))
+            noise = np.hstack((noise, np.random.randn(No_sample,1)*0.01))
         noise[:,3] = 0
-        noise = noise @ var
+        # noise = noise *0.1 #@ var
         return noise
 
     def genrate_particles(self,Meas_X_t, Meas_Z_t):
@@ -49,18 +49,20 @@ class Gmapping():
         for P in self.particleList:
             # print(f"Particle {P.id} is being processed")
             st_prime = P.motion_prediction(cmdIn, dt)
-            GT,GT_Lst = P.scan_match(Meas_X_t,self.prev_scan_update, Meas_Z_t, self.Meas_Z_t_1)
+            GT,GT_Lst = P.scan_match(st_prime,self.prev_scan_update, Meas_Z_t, self.Meas_Z_t_1, method =1)
             print(GT['error'])
-            if GT['error'] > 0.0015: #ICP SVD= 0.1. #ICP LS = 0.0015 
+            # MapIdx_G = self.OG.MapIdx_G - self.OG.MapDim
+            # MapIdx_G[1,:] = MapIdx_G[1,:] -100
+            if GT['error'] > P.err_thresh: #ICP SVD= 0.1. #ICP LS = 0.0015 
                 #ScanMatch results very poor , use the motion model prediction
                 P.st = st_prime
-                P.w = P.w * lklyMdl(Meas_Z_t.to_numpy().T, P.st,self.OG.MapIdx_G)
+                P.w = P.w * lklyMdl(Meas_Z_t.to_numpy().T, P.st ,self.OG.MapIdx_G)
             else:
                 # compute the Gaussian proposal
-                st_hat = GT_Lst[:2]
-                st_hat = np.append(st_hat, Meas_X_t[2:4])
+                st_hat = GT_Lst[:3]
+                st_hat = np.append(st_hat, Meas_X_t[3:4])
                 diff = st_hat - Meas_X_t[:4] 
-                print(f'diff1:{np.linalg.norm(diff)}')
+                # print(f'diff1:{(diff)}')
                 sample_cnt = 20
                 Gaus_sampl = st_hat[0:4] + self.noise_matrix(sample_cnt, P.sigma)
                 # reinitialize
@@ -74,15 +76,14 @@ class Gmapping():
                 #sub sample in the region found by scan matching
                 #compute Mean
                 for j in range(Gaus_sampl.shape[0]):
-                    MapIdx_G = self.OG.MapIdx_G - self.OG.MapDim
-                    MapIdx_G[1,:] = MapIdx_G[1,:] -100
-                    meas_lykly = lklyMdl(Meas_Z_t.to_numpy().T , Gaus_sampl[j],MapIdx_G)
+                    meas_lykly = lklyMdl(Meas_Z_t.to_numpy().T , Gaus_sampl[j],self.OG.MapIdx_G)
                     # GT,_ = P.scan_match(Gaus_sampl[j], Meas_Z_t, self.Meas_Z_t_1)
                     mu_mat[j,:] = Gaus_sampl[j]
                     lykly = np.append(lykly,meas_lykly)
                 # print(np.array(lykly))
                 # lykly = np.ones((20,1))*0.05
                 norm = sum(lykly)
+                # normalize(np.ones(10))
                 lykly = softmax(normalize(np.array(lykly)))
                 mu_mat = mu_mat * lykly.reshape(Gaus_sampl.shape[0],1)
                 P.norm = lykly.sum()
@@ -97,9 +98,9 @@ class Gmapping():
                 # P.sigma = np.cov(Gaus_sampl.T, aweights=lykly.flatten()) #covariance
                 # print(f'Type2:{P.sigma}')
                 #Sample Pose from Guas Approx
-                P.st = P.mu + np.random.rand(4)*P.sigma
+                P.st = P.mu #+ np.random.rand(4)*P.sigma
                 diff = P.st - Meas_X_t[:4] 
-                print(f'diff2:{np.linalg.norm(diff)}')
+                # print(f'diff2:{(diff)}')
                 # P.st = np.sum(P.st, axis=0)/4
                 #update importance weight
                 # P.st = st_hat
@@ -131,9 +132,11 @@ class Gmapping():
             var += P.sigma*P.w
             norm += P.w
         mu = mu/norm
+        diff = mu - Meas_X_t[:4] 
+        print(f'diff:{(diff)}')
         self.prev_scan_update = mu
         self.aly._set_trajectory(mu,heavyPart)
-        # self.OG.Update(mu, Meas_Z_t,False)
+        self.OG.Update(mu, Meas_Z_t,True)
         # self.SM.updateTargetMap(mu, Meas_Z_t)
         
     def _random_resample(self, part_w, Meas_Z_t):

@@ -162,18 +162,18 @@ class Map():
     
     def Lidar2MapFrame(self, Local_Map , Pose_X_t):
         GlobalMap = np.zeros((self.Long_Length, self.Lat_Width))
-        (x,y) = np.where(Local_Map > 0)
-        Pos = np.array([Pose_X_t[0], Pose_X_t[1]]).reshape(2,1)
+        (y,x) = np.where(Local_Map > 0)
+        Pos = np.array([Pose_X_t[1], Pose_X_t[0]]).reshape(2,1)
         # Pos = np.ceil(Pos).astype(np.int32)
-        Meas = np.vstack((x,y))-self.MapDim
+        Meas = np.vstack((y,x))-self.MapDim
         # Offst = np.array([self.Long_Length, self.Lat_Width]).reshape(2,1)/2
         # Offst = Offst.astype(np.int32)
-        MapIdx = rotate(Pose_X_t[2]) @ Meas +Pos +self.MapDim
+        MapIdx = rotate(-Pose_X_t[2]) @ Meas +Pos +self.MapDim
         # self.MapIdx_G = np.unique(np.concatenate((self.MapIdx_G,MapIdx-self.MapDim), axis=1),axis=1) # Grabs all theoccupied cells in the GlobalMap        
         MapIdx_G = np.unique(MapIdx,axis=1) # Stores the coords of only the last identified occupied 
-        MapIdx_G[1,:] = MapIdx_G[1,:] + 100
+        # MapIdx_G[1,:] = MapIdx_G[1,:] + 100
         MapIdx = np.ceil(MapIdx).astype(np.int32)
-        GlobalMap[MapIdx[0], MapIdx[1]+100]= Local_Map[x,y]
+        GlobalMap[MapIdx[1], MapIdx[0]+100]= Local_Map[y,x]
         # self.PlotMap(GlobalMap,Pose_X_t,'Transformed to MAP Frame', self.Lat_Width, self.Long_Length)
         return GlobalMap, MapIdx_G
 
@@ -184,7 +184,7 @@ class Map():
         plt.ylim(0,lat_lim)
         plt.xlim(0,long_lim)
         self.ax.add_patch(Veh)                
-        plt.imshow(probMap, cmap='Greys')
+        plt.imshow(probMap.T, cmap='Greys')
         #plt.savefig('/Local/Local{title}.png')        
         plt.pause(0.001)
         #plt.matshow(probMap.T)
