@@ -6,6 +6,7 @@ Created on Mon Dec 14 19:20:24 2020
 """
 
 import logging
+import time
 # To resolve VS code error
 import sys
 import os
@@ -15,16 +16,21 @@ sys.path.append(os.path.abspath(os.path.join('..', 'SLAM_ResearchThesis')))
 import numpy as np
 import rosbag
 from libs.slam_analyzer import Analyze as aly
+from utils.tools import latlonhtoxyzwgs84
 # from slam_posegraph.graph_constructor import Graph
 # from slam_posegraph.graph_optimizer import ManifoldOptimizer
 from slam_particlefilter.particle_filter import RBPF_SLAM
 from slam_particlefilter.gmapping import Gmapping
 from squaternion import Quaternion
-
+from libs.occupancy_grid import Map
+from utils.tools import Lidar_3D_Preprocessing
 import csv
+
+Methods = ['ICP-SVD', 'ICP-LS', 'RTCSM']
 
 def ROS_bag_run():
     iterate = 0
+    SM_method = 2
     if sys.platform =='linux':
         # bag = rosbag.Bag('/media/mangaldeep/HDD3/DataSets/Bagfiles/CARLA_Autopilot_ROS_01_02_2021_Town3.bag') #508 - 620
         # bag = rosbag.Bag('/media/mangaldeep/HDD3/DataSets/Bagfiles/CARLA_Autopilot_ROS_08_02_2021_Town4.bag')
@@ -33,10 +39,10 @@ def ROS_bag_run():
         # bag = rosbag.Bag('/media/mangaldeep/HDD3/DataSets/Bagfiles/CARLA_Autopilot_ROS_12_03_2021_Town3.bag') # lidar freq  1 HZ , scanmatching doesnt work
     else:
         bag = rosbag.Bag('G:/DataSets/BagFiles/CARLA_Autopilot_ROS.bag') #508 - 620
-
-    plotter = aly('GMapping')
-    slam_obj = Gmapping(plotter, 10)
-    #slam_obj = RBPF_SLAM(plotter, 10)
+    analysis = aly(f'GMapping-{Methods[SM_method]}')
+    # GMAP = Map()
+    slam_obj = Gmapping(analysis, 20)
+    #slam_obj = RBPF_SLAM(analysis, 10)
     logger = logging.getLogger('ROS_Decode')
 
     # slam_obj = Graph()
@@ -56,9 +62,9 @@ def ROS_bag_run():
     ## Initialization
     Meas_X_t = {}
     Meas_Z_t = {}
-    GPS_Z_t = {}
+    GPS = {}
     IMU_Z_t = {}
-    Gps_avail ,Imu_avail,Lidar_avail ,Odom_avail,old_t = 0,0 ,0,0,0
+    Gps_avail ,Imu_avail,Lidar_avail ,Odom_avail,old_t,i = 0,0 ,0,0,0,0
     max_steering_angle = 1.221730351448059
     # with open('results/GT_CARLA_AP_Town3.csv','w')as xlFile:
     #     writer = csv.writer(xlFile)
@@ -84,23 +90,26 @@ def ROS_bag_run():
         #     veh_info = 1
         #     print('/carla/ego_vehicle/vehicle_info')
                 
-        if topic == '/carla/ego_vehicle/odometry':  
+        if topic == '/carla/ego_vehicle/odometry':  #Units in 
             Quat = Quaternion(msg.pose.pose.orientation.w,msg.pose.pose.orientation.x,msg.pose.pose.orientation.y,msg.pose.pose.orientation.z)
             Eul = Quat.to_euler(degrees = True)  #(roll, pitch, yaw)
-            Meas_X_t['x'] = msg.pose.pose.position.x + np.random.randn()*0.01
-            Meas_X_t['y'] = msg.pose.pose.position.y + np.random.randn()*0.01
+            Meas_X_t['x'] = msg.pose.pose.position.x + np.random.randn()*0.01 -i
+            Meas_X_t['y'] = msg.pose.pose.position.y + np.random.randn()*0.01 -i
             Meas_X_t['yaw'] = Eul[2] + np.random.randn()*0.01
             Meas_X_t['t']= t.to_sec()
             #g.append(t.to_sec())
             Odom_avail =1
+            i +=0.01
             logger.info(f"Odometry for {t.to_sec()} extracted")
         
-        if topic == '/carla/ego_vehicle/gnss/gnss1/fix':
-            GPS_Z_t['lat']= (msg.latitude)
-            GPS_Z_t['long']= (msg.longitude)
-            GPS_Z_t['alt'] = msg.altitude
-            GPS_Z_t['t']= t.to_sec()
+        if topic == '/carla/ego_vehicle/gnss/gnss1/fix': # Units in meters
+            pose  = latlonhtoxyzwgs84(msg.latitude, msg.longitude, msg.altitude)
+            GPS['long']= pose[1]
+            GPS['lat']= pose[2]
+            GPS['alt'] = pose[0]
+            GPS['t']= t.to_sec()
             Gps_avail =1
+            GPS_Z_t = list(GPS.values())
             logger.info(f"GNSS for {t.to_sec()} extracted") 
         
         if topic == '/carla/ego_vehicle/imu/imu1':
@@ -132,13 +141,17 @@ def ROS_bag_run():
             # writer.writerow([Meas_X_t['t'], Meas_X_t['x'],Meas_X_t['y'], Meas_X_t['yaw'], Meas_X_t['v'], Meas_X_t['acc'], Meas_X_t['steer'], GPS_Z_t['lat'],
             #     GPS_Z_t['long'], GPS_Z_t['alt'], IMU_Z_t['roll'], IMU_Z_t['pitch'],  IMU_Z_t['yaw'] ,IMU_Z_t['ang_vel'] ])
             if (Meas_X_t['v']>0.01 or Meas_X_t['v'] <-0.01):
-                plotter.set_groundtruth(GPS_Z_t, IMU_Z_t, Meas_X_t)
+                # analysis.set_groundtruth(GPS_Z_t, IMU_Z_t, Meas_X_t)
+                # # To plot the ground truth Map.
+                # Meas_Z_t = Lidar_3D_Preprocessing(Meas_Z_t)
+                # loc = [GPS['long'], GPS['lat'] , Meas_X_t['yaw']]
+                # GMAP.Update(loc , Meas_Z_t, True)
             ##  Graph Based    
             # slam_obj.create_graph(Meas_X_t , Meas_Z_t )
 
                 ## Particle Based
                 # print(Meas_X_t['t'], Meas_Z_t['t'], GPS_Z_t['t'], IMU_Z_t['t'])
-                slam_obj.run(Meas_X_t,Meas_Z_t, GPS_Z_t,IMU_Z_t)
+                slam_obj.run(Meas_X_t,Meas_Z_t, GPS_Z_t,IMU_Z_t, SM_method)
 
             #slam_obj.run(Meas_X_t_1,Meas_X_t,Meas_Z_t)
 
@@ -147,12 +160,18 @@ def ROS_bag_run():
         
         old_t = t.to_sec()
 
-    # slam_obj.plot_results()    
+    analysis.plot_results()
     #slam_opt_obj.optimize(Gp)
-    # plotter.plot_results()
+    analysis.error_plot()
+    analysis.analysis_metrics()
+    analysis.benchmark_metric()
+    print(f"The Model used count: MM:{slam_obj.model_used[0]/slam_obj.particleCnt}, SM:{slam_obj.model_used[1]/slam_obj.particleCnt}")
+    print(f"Resampling count:{slam_obj.model_used[2]}")
     bag.close()
     # xlFile.close()
 
-
 if __name__ == '__main__':
+    start = time.perf_counter()
     ROS_bag_run()
+    stop = time.perf_counter()
+    print(f'Time to complete:{stop - start} seconds(s)')

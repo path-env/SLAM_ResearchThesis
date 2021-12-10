@@ -16,6 +16,7 @@ import scipy as sp
 import matplotlib.pyplot as plt
 import logging
 from sklearn.neighbors import NearestNeighbors
+from sklearn.preprocessing import normalize as normz
 from sksurgerygoicppython import GoICP, POINT3D, ROTNODE, TRANSNODE
 
 from utils.tools import rotate , translate, normalize, softmax, poseComposition
@@ -396,7 +397,7 @@ class ICP():
         u, s, vh = np.linalg.svd(H,full_matrices=True,compute_uv=True)
         
         #Find Roation
-        R = u @ vh.T
+        R = u @ vh
         if np.linalg.det(R) <= -1:
             Warning('No Unique solution obtained')  
         T = p_mean - R@p_1mean 
@@ -476,12 +477,12 @@ class ICP():
         alignmenterr = 10000
         loop_cnt = 0
         # Transform to the estimated pose
+        actMeas = Meas_Z_t_1.copy()
         # Meas_Z_t = rotate(Est_X_t[2]) @ Meas_Z_t + Est_X_t[0:2].reshape(2,-1)
         # Meas_Z_t_1 = rotate(Est_X_t_1[2]) @ Meas_Z_t_1 + Est_X_t_1[0:2].reshape(2,-1)
-        actMeas = Meas_Z_t_1.copy()
         #Transform to the estimated relative pose
-        # diff= Est_X_t_1 - Est_X_t
-        # Meas_Z_t_1 = rotate(diff[2]) @Meas_Z_t_1 + diff[0:2].reshape(2,-1) 
+        diff= Est_X_t - Est_X_t_1
+        Meas_Z_t_1 = rotate(diff[2]) @Meas_Z_t_1 + diff[0:2].reshape(2,-1) 
         try:
             while np.any(np.abs(prev_error - alignmenterr) > threshold):
                 prev_error = alignmenterr
@@ -489,7 +490,7 @@ class ICP():
                 # Meas_Z_t, Meas_Z_t_1 = self.subsample(Meas_Z_t, Meas_Z_t_1)
                 p2,p1, weights =self._closestPtCorrespondence(Meas_Z_t, Meas_Z_t_1,bound)
                 R,T,orientation,alignmenterr,_,_,_,_,p_1mean,p_mean = self._compute_T_R(p2,p1, weights)                
-                Meas_Z_t_1 = (R @ (Meas_Z_t_1[:,:]- p_mean) )+p_1mean  
+                Meas_Z_t_1 = (R @ (Meas_Z_t_1[:,:]- p_mean)) + p_1mean # '- p_1mean' for standalone run
                 loop_cnt +=1
                 # print(alignmenterr, orientation)
                 if np.all(abs(alignmenterr)< threshold) or loop_cnt > Iter:
@@ -498,7 +499,7 @@ class ICP():
             #     #print(f"Error beyond threshold @ {alignmenterr}")
             #     alignmenterr = None
             RelativeTrans = {'r':R,'T':T , 'yaw':orientation,'error':alignmenterr}
-            R,T,orientation,error,_,_,_,_,_,_ = self._compute_T_R(actMeas,Meas_Z_t_1, weights)
+            R,T,orientation,error,_,_,_,_,_,_ = self._compute_T_R(actMeas,Meas_Z_t_1, weights)# swap act and t-1 for standalone run
             Trans_Lst = np.append(T,orientation)
             if Mode == 'GT':
                 Trans_Lst = poseComposition(Est_X_t_1, Trans_Lst)
@@ -516,11 +517,13 @@ class ICP():
         # del_x[2] = np.deg2rad(del_x[2])
         init_est = del_x.copy()
         x =  np.array([0.,0.,0.]).reshape(3,-1)
-        p2, p1 =(Meas_Z_t[0:2,:], Meas_Z_t_1[0:2,:])
-        # p2 = rotate(Est_X_t[2])@p2 + Est_X_t[0:2].reshape(2,-1)
-        # p1 = rotate(Est_X_t_1[2])@p1 + Est_X_t_1[0:2].reshape(2,-1)
-        P2, P1 = self.subsample(p2, p1)
-        P1_org = P1.copy()
+        diff= Est_X_t - Est_X_t_1
+        P2, P1 =(Meas_Z_t[0:2,:], Meas_Z_t_1[0:2,:])
+        # P2, P1 = self.subsample(p2, p1)
+        P2 = rotate(Est_X_t[2])@P2 + Est_X_t[0:2].reshape(2,-1)
+        P1 = rotate(Est_X_t_1[2])@P1 + Est_X_t_1[0:2].reshape(2,-1)
+        P1 = rotate(diff[2]) @P1[0:2,:] + diff[0:2].reshape(2,-1) 
+        P1_org = P1.copy()   
         for t in range(Iter):
             chi2,deg_x = 0, np.rad2deg(x[2])
             # Apply transformation on pointcloud
@@ -589,7 +592,8 @@ class RTCSM():
         self.Pos_var = 0.1
         self.ori_var = 0.1
         
-    def match(self, Meas_Z_t,Meas_Z_t_1,Est_X_t,Est_X_t_1):
+    def match(self, Meas_Z_t,Meas_Z_t_1,Est_X_t,Est_X_t_1, iteration):
+        self.iteration = iteration
         #Construct High resolution map
         HMap = self._highResMap(Est_X_t, Meas_Z_t)
         #Est_X_t, Meas_Z_t = self._modifyDtype(Est_X_t, Meas_Z_t)
@@ -599,7 +603,7 @@ class RTCSM():
         Updt_X_t, confidence_ = self._search3DMatch( Est_X_t, Est_X_t_1, Meas_Z_t,  LMap, 0.1,mode='L')
         Updt_X_t, confidence = self._search3DMatch(Updt_X_t, Est_X_t_1, Meas_Z_t,  HMap, 0.01, mode= 'H')
         Trans = {'error':confidence, 'T':np.array([Updt_X_t[0], Updt_X_t[1]]).reshape(2,-1), 'yaw':Updt_X_t[2]}
-        return Trans
+        return Trans, Updt_X_t
     
     def _highResMap(self, Est_X_t, Meas_Z_t):        
         # HMap,centre_pos,_,_ = self.OG.getScanMap(Meas_Z_t, Est_X_t)
@@ -626,26 +630,26 @@ class RTCSM():
         MeasMap = Map
         # create a search space
         if mode == 'L':
-            Numcell = 10 #0.1
+            Numcell = 20 #0.1
         else:
-            Numcell = 1 #0.01
+            Numcell = 10 #0.01
             #Numcell = 15
-        Xrange = np.arange(-Numcell ,  Numcell+1)
-        Yrange = np.arange(-Numcell ,  Numcell+1)
-        x , y = np.meshgrid(Xrange,Yrange)
+        Xrange = np.flip(np.arange(-Numcell ,  Numcell+1))
+        Yrange = np.flip(np.arange(-Numcell ,  Numcell+1))
+        y,x = np.meshgrid(Xrange,Yrange)
         if mode == 'H':
-            TargetMap = self.HTgtMap
-            ori_space = np.arange(-1,1,searchStep)
+            TargetMap = self.HTgtMap.T
+            ori_space = (np.arange(-0.1,0.1,searchStep))
             Pos_search_mask = np.zeros((x.shape[0], x.shape[1]))
             Ori_search_mask = np.zeros((x.shape[0], x.shape[1]))
         else:
-            TargetMap = self.LTgtMap
-            ori_space = np.arange(-3,3,0.1)
+            TargetMap = self.LTgtMap.T
+            ori_space = (np.arange(-1,1,searchStep))
         
             EstDistDrvn = np.sqrt((Est_X_t_1[0] - Est_X_t[0])**2 + (Est_X_t_1[1] - Est_X_t[1])**2 )
             Pos_contour = np.abs(np.sqrt((x*searchStep) ** 2 + (y*searchStep) ** 2) - EstDistDrvn)
             # sq[np.where(sq <EstDistDrvn)] = np.ceil(EstDistDrvn)
-            Pos_search_mask = (-(1 / (2 * self.Pos_var**2)) * (np.sqrt((x*searchStep) ** 2 + (y*searchStep) ** 2) - (EstDistDrvn)) ** 2)
+            Pos_search_mask = (-(1 / (2 * self.Pos_var**2)) * (np.sqrt((x*searchStep) ** 2 + (y*searchStep) ** 2) - EstDistDrvn) ** 2)
             # Pos_search_mask = normalize(Pos_search_mask)
             Pos_search_mask[Pos_contour>1] = -100
             #Pos_search_mask[Pos_search_mask < -25000] = -10000000
@@ -660,6 +664,7 @@ class RTCSM():
             # Pos_search_mask = np.zeros((Map.shape[0], Map.shape[1]))
             # Ori_search_mask = np.zeros((Map.shape[0], Map.shape[1]))
         Mask = Pos_search_mask + Ori_search_mask
+        # Mask = Mask.reshape((Mask.shape[0], Mask.shape[1], 1))
         #Mask = normalize(Mask)
         #Mask[Mask<-0.6] = 0
         x = x.reshape((x.shape[0], x.shape[1], 1))
@@ -668,20 +673,17 @@ class RTCSM():
         Corr_cost = np.zeros(len(ori_space),)
         theta = np.zeros(len(ori_space),)
         #Meas['x'], Meas['y']= Meas_Z_t['x'], Meas_Z_t['y']
-        plt.figure()
         Est =[Est_X_t[0],Est_X_t[1]+100,Est_X_t[2]]
         resol = 1/0.01
+        # plt.figure()
         for i,ori in enumerate(ori_space):
-            plt.cla()
-            print(ori)
             Est[2] = Est_X_t[2] + ori
             #Meas = self._rotate(Est, Meas, searchStep)
-            Temp_map = sp.ndimage.rotate(MeasMap, ori , reshape=False, order=3)
-            Temp_map[Temp_map<0.3] = 0
-            Temp_map_G ,_= self.OG.Lidar2MapFrame( Temp_map , Est_X_t) 
-            # self.OG.PlotMap(Temp_map,Est,'Temp_map',70,70)     
+            Temp_map = sp.ndimage.rotate(MeasMap, ori , reshape=False, order=1)
+            Temp_map_G,_= self.OG.Lidar2MapFrame(Temp_map , Est_X_t)
+            Temp_map_G[Temp_map_G<1.5] = 0
             # m = self.rotate(Est,Meas)
-            MeasIdx = np.asarray(np.where(Temp_map_G>0))
+            MeasIdx = np.asarray(np.where(Temp_map_G.T>0))
             XY_Idx = np.unique(MeasIdx, axis=1)
             X_Idx, Y_Idx = XY_Idx[0,:],XY_Idx[1,:]
             # _,Idx = np.unique(XY_Idx[0,:],return_index=True)
@@ -693,36 +695,47 @@ class RTCSM():
             # X_Idx, Y_Idx = X_Idx[Idx], Y_Idx[Idx]
             # Idx = np.where(np.logical_and(Y_Idx<65 , Y_Idx>5))
             # X_Idx, Y_Idx = X_Idx[Idx], Y_Idx[Idx]
-            #Debug
+
             # TMap = np.zeros(TargetMap.shape)
             # TMap[X_Idx, Y_Idx] = Temp_map[X_Idx, Y_Idx]
             # TMap = TargetMap[X_Idx.min():X_Idx.max(), Y_Idx.min(), Y_Idx.max()] 
-            # Debug
             X_Idx = X_Idx.reshape(1, 1, -1) #- self.OG.max_lidar_r
             Y_Idx = Y_Idx.reshape(1, 1, -1) #- self.OG.max_lidar_r
             # Meas = (rotate(Est[2]+90) @ Meas_Z_t[0:2,:]) + translate(Est[0], Est[1]) + self.OG.MapDim
-            X_Idx = (X_Idx + y).astype(int)
-            Y_Idx = (Y_Idx + x).astype(int)
-            convResult = (TargetMap[X_Idx, Y_Idx])
-
+            X_Idx = (X_Idx + x).astype(int)
+            Y_Idx = (Y_Idx + y).astype(int)
+            convResult = (TargetMap[X_Idx, Y_Idx]) #+Mask.reshape(Mask.shape[0], Mask.shape[1],1)
             convResultSum = np.sum(convResult, axis=2)
             # convResultSum = normalize(convResultSum)
             UncrtnMap = convResultSum + Mask
             theta[i] = Est[2]
-            Corr_cost[i] = norm(np.abs(UncrtnMap))
+            Corr_cost[i] = MeasIdx.shape[1]
             Corr_Cost_Fn[i,:,:] = UncrtnMap
-            # plt.contour(Pos_search_mask)
-            # plt.contour(Ori_search_mask)
-            plt.contourf(UncrtnMap)
-            # plt.colorbar()
-            plt.pause(0.001)
+            # Debug
+            # plt.cla()
+            # self.OG.PlotMap(Temp_map_G,Est,'Temp_map_G',self.OG.Long_Length,self.OG.Lat_Width)   
+            # # plt.contour(Pos_search_mask)
+            # # plt.contour(Ori_search_mask)
+            # plt.contourf(UncrtnMap)
+            # # plt.colorbar()
+            # plt.pause(0.001)
         # Find the best voxel in the Low resolution Map
+        # plt.close()
         maxIdx = np.unravel_index(Corr_Cost_Fn.argmax(), Corr_Cost_Fn.shape)
-        confidence = np.sum(np.exp(Corr_Cost_Fn))
+        temp = (Corr_Cost_Fn[maxIdx[0],:,:])
+        temp = (temp - temp.min())/(temp.max()-temp.min())
+        temp = temp/temp.sum()
+        confidence = temp.max()
         dx, dy, dtheta = Xrange[maxIdx[2]]*searchStep , Yrange[maxIdx[1]]*searchStep, ori_space[maxIdx[0]]
-        print(dx, dy, dtheta, confidence)
-        Updt_X_t = [Est_X_t_1[0] + dx, Est_X_t_1[1] + dy, Est_X_t_1[2] + dtheta]
-        return Updt_X_t , confidence
+        print(maxIdx)
+        # if confidence>0.056:
+        #     print("cx")
+        Updt_X_t = [Est_X_t[0] + dx, Est_X_t[1] + dy, Est_X_t[2]+dtheta]
+        # print(TargetMap.max())
+        # print(f'Mode = {mode},Est = {Est}, Updt = {Updt_X_t}')
+        # if (confidence) < 0.5:
+        print(confidence)
+        return Updt_X_t , 1/confidence
         
     def rotate(self, Est_X, Meas):
         """
@@ -758,11 +771,13 @@ class RTCSM():
     def updateTargetMap(self, Est_X_t, Meas_Z_t):
         self.Est_X_t_1 = Est_X_t
         self.Meas_Z_t_1 = Meas_Z_t  
-        ExtractMap,_= self.OG.getExtractMap(Est_X_t)
+        # ExtractMap,_= self.OG.getExtractMap(Est_X_t)
+        # ExtractMap ,_= self.OG.Lidar2MapFrame( ExtractMap.T, Est_X_t) 
         ExtractMap = self.OG.LO_t_i
-        ExtractMap[ExtractMap<0.3] = 0
-        self.HTgtMap =  ExtractMap#gaussian_filter(ExtractMap, sigma =1)
-        self.LTgtMap =  ExtractMap#gaussian_filter(ExtractMap, sigma =1)
+        ExtractMap[ExtractMap<1.5] = 0
+        # ExtractMap[ExtractMap>0] = 1
+        self.HTgtMap =  ExtractMap #gaussian_filter(ExtractMap, sigma =1)
+        self.LTgtMap =  ExtractMap #gaussian_filter(ExtractMap, sigma =1)
         # LowResol = np.int32(3*self.OG.Grid_resol/0.01)
         # LowResolMap = np.zeros((ExtractMap.shape))
         # for row in range(0,ExtractMap.shape[0],LowResol):
@@ -806,13 +821,14 @@ class GO_ICP():
         print(self.go_icp.optimalTranslation())
 
 if __name__ == '__main__':
-    R = -2.2 # in degress
+    R = 2.2 # in degress
     T = np.array([1,-1.5]).reshape(2,1)
     Meas_Z_t_1 =np.array([[1,-1],[1,1]],dtype = np.float64)
     Meas_Z_t = np.array([[1,-1],[0,2]],dtype = np.float64)
     Meas_Z_t_1 = np.array([[2,3,-2,-3,-2,-3,2,3],[2,3,2,3,-2,-3,-2,-3]])
     Meas_Z_t = (rotate(R) @ Meas_Z_t_1 ) + T
-    Est_X_t = np.array([1,0.,0.3],dtype = np.float64)
+    Est_X_t = np.array([1,0.,0.5],dtype = np.float64)
     Est_X_t_1 =np.array([0,0,0],dtype = np.float64)
     SM = ICP()   
-    GT, GT_Lst = SM.match_SVD(Meas_Z_t,Meas_Z_t_1,Est_X_t,Est_X_t_1)
+    GT, GT_Lst = SM.match_LS(Meas_Z_t_1,Meas_Z_t,Est_X_t,Est_X_t_1)
+    print(GT_Lst)

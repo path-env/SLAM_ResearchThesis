@@ -28,7 +28,7 @@ For the ${i}^{th}$ particle:
 \begin{gather} \label{SIS_Sample}
     x_{0:t}^{i} \approx q(x_{0:t}| y_{1:t}) 
 \end{gather}
-where ${q(x_{0:t}| y_{1:t})}$ is the posterior density of the proposal distribution which could be factorized as 
+where ${q(x_{0:t}| y_{1:t})}$ is the posterior density of the proposal distribution that could be factorized as 
 \begin{gather} \label{SIS_propfact}
     q(x_{0:t}| y_{1:t}) = q(x_t|x_{t-1},y_{t}) q(x_{0:t-1}| y_{1:t-1}).
 \end{gather}
@@ -44,7 +44,7 @@ With the right choice of the proposal distribution the weights can be derived wi
 In most cases the weights of the particles in a sample set can end up with high variance, due to which the particle with the highest weight gets sampled repeatedly in the re-sampling step. This is referred to as \textit{Particle Degeneration}. Hence the system's belief is stuck to one particle leading to ignorance of uncertainty and consecutively to divergence of the filter from the true value.
 
 \subsection{Resample}
-As the variance of the weights increase the sample set is dominated only by very few particles with high weight which results in poor state estimate. Hence to avoid it is better to perform a re-sampling step where N particles are sampled from the current particle set using various strategies. Depending on the strategies used to re-sample various re-sampling techniques exists such as Systematic re-sampling, Random re-sampling, Selective re-sampling \dots. This replaces the old sample set with new set of samples with equal weights. However in most cases the clarity of tolerable variance of the weights for a particle set is not clear. In \cite{GMap_algo},it is found that Adaptive re-sampling provides the best criteria for re-sampling. It follows the intuition that if all the samples are same as that from the target distribution then ${N_{eff}}$ is higher and re-sampling is not required, but when difference between target and proposal are higher then the variance of the weights are higher and ${N_{eff}}$ reduces. This requires calculating the effective number of the particles ${N_{eff}}$:
+As the variance of the weights increase the sample set is dominated only by very few particles with high weight that results in poor state estimate. Hence to avoid it is better to perform a re-sampling step where N particles are sampled from the current particle set using various strategies. Depending on the strategies used to re-sample various re-sampling techniques exists such as Systematic re-sampling, Random re-sampling, Selective re-sampling \dots. This replaces the old sample set with new set of samples with equal weights. However in most cases the clarity of tolerable variance of the weights for a particle set is not clear. In \cite{GMap_algo},it is found that Adaptive re-sampling provides the best criteria for re-sampling. It follows the intuition that if all the samples are same as that from the target distribution then ${N_{eff}}$ is higher and re-sampling is not required, but when difference between target and proposal are higher then the variance of the weights are higher and ${N_{eff}}$ reduces. This requires calculating the effective number of the particles ${N_{eff}}$:
 \begin{gather} \label{Neff}
 N_{eff} = \frac{1}{\sum_{i=1}^{N} w_{i}^{2} } 
 \end{gather}
@@ -56,14 +56,14 @@ when the ${N_{eff} < N/2}$.
 \begin{gather} \label{RAoB}
     p(x_{1:t}, m | z_{1:t}, u_{1:t-1}) = p(m | z_{1:t}, x_{1:t}).p(x_{1:t} | z_{1:t}, u_{1:t-1})
 \end{gather}
-where the problem of solving the joint posterior disintegrates to $p(m | z_{1:t}, x_{1:t})$ mapping which is the linear part in the spatial structure and $p(x_{1:t} | z_{1:t}, u_{1:t-1})$ localization where particle filter can be applied. By estimating the trajectory of positions, then the mapping can be performed easily. With the right choice of the proposal distribution, where it can be resolved into recursive terms as in \refeq{SIS_propfact} then the weight calculation can also be done recursively.
+where the problem of solving the joint posterior disintegrates to $p(m | z_{1:t}, x_{1:t})$ mapping that is the linear part in the spatial structure and $p(x_{1:t} | z_{1:t}, u_{1:t-1})$ localization where particle filter can be applied. By estimating the trajectory of positions, then the mapping can be performed easily. With the right choice of the proposal distribution, where it can be resolved into recursive terms as in \refeq{SIS_propfact} then the weight calculation can also be done recursively.
 \begin{gather} \label{RaoB_weight}
     w_{t}^{i} = w_{t-1}^{i} \frac{p(z_{t}|x_{t}^{i}, m_{t-1}^{i}). p(x_{t}^{i}|x_{t-1}^{i}, u_{t-1})}{q(x_t|x_{t-1}^{i},z_{t}, u_{t-1})}
 \end{gather}
 This is followed by the re-sampling step and the estimation is carried over recursively.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{gMapping- Improved RBPF}
-The proposal distribution discussed so far use the motion model which is easy to compute for most type of robots and recursive calculation of the importance weights used only the measurement model to update the previous importance weight. However this can result in sub-optimal results in systems with a laser sensor as it could provide better accurate information than the motion estimate\cite{GMap_algo}. Hence using the sensor observation in the proposal distribution can provide better approximation than the motion estimate. In the case of grid mapping the number of occupied cell state explodes which makes it difficult to calculate the importance weight update recursively. Hence the known proposal distribution can be obtained using the adapted particle filter where the proposal distribution of each particle is derived from sampled estimate of optimal proposal distribution. It is observed that the likelihood of the robot position with the help of sensor observations has only one peak with small variance. Hence limiting the sample of the proposal to this likelihood would help in reduced sample set as very few particles can easily describe the distribution. 
+The proposal distribution discussed so far use the motion model that is easy to compute for most type of robots and recursive calculation of the importance weights used only the measurement model to update the previous importance weight. However this can result in sub-optimal maps in systems with a laser sensor as it could provide better accurate information than the motion estimate\cite{GMap_algo}. Hence using the sensor observation in the proposal distribution can provide better approximation than the motion estimate. In the case of grid mapping the number of occupied cell state explodes that makes it difficult to calculate the importance weight update recursively. Hence the known proposal distribution can be obtained using the adapted particle filter where the proposal distribution of each particle is derived from sampled estimate of optimal proposal distribution. It is observed that the likelihood of the robot position with the help of sensor observations has only one peak with small variance. Hence limiting the sample of the proposal to this likelihood would help in reduced sample set as very few particles can easily describe the distribution. 
 \begin{gather} \label{gMap-L}
     L^{(i)} = \{ x | p(z_t| m_{t-1}^{(i)},x)>\epsilon\} 
 \end{gather}
@@ -93,7 +93,6 @@ However in situations in which the scan matching fails, motion model estimate is
 Finally when the variance of the weights increases as per the Adaptive re-sampling criteria discussed earlier, then re-sampling can be carried out on the existing particle set.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Results and Analysis}
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Summary}
+Particle filters are non parametric filters, hence it can be used to model any distribution. It models the distribution by random set of particles. These particles are sampled from a proposal distribution and weighted against the target distribution. This process is recursive which forms the sequential importance sampling principle. This allows previous weight values to be used in current estimation of the weight. However choosing the right proposal model is challenging. gMapping proposes a improved proposal distribution with the use of high precision laser scanners. Finally to avoid particle degeneration adaptive re-sampling is performed on the existing particle set.

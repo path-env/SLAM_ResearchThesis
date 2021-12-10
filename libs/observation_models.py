@@ -59,10 +59,10 @@ def Likelihood_Field_Observation_Model(Meas_Z_t , Est_X_t ,MapIdx_G,z_hit = 0.5 
     idx= np.where(range < 35)[0]
     Meas_Z_t = Meas_Z_t[:2,idx]
     # to align with the map representation
-    Meas_Z_t = rotate(90) @ Meas_Z_t
-    Meas_Z_t = np.array([[-1,0],[0,1]]) @ Meas_Z_t
+    # Meas_Z_t = rotate(90) @ Meas_Z_t
+    # Meas_Z_t = np.array([[0,1],[1,0]]) @ Meas_Z_t
     Meas_Z_t_G = rotate(Est_X_t[2])@ Meas_Z_t + Est_X_t[:2].reshape(2,-1) + 35
-    Meas_Z_t_G[1,:] = Meas_Z_t_G[1,:] +100
+    # Meas_Z_t_G[1,:] = Meas_Z_t_G[1,:] +100
     # range = Meas_Z_t_1[4,:]
     # idx= np.where(range < 35)[0]
     # Meas_Z_t_1 = Meas_Z_t_1[:2,idx] 

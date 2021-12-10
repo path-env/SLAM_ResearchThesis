@@ -177,12 +177,16 @@ class Map():
         # self.PlotMap(GlobalMap,Pose_X_t,'Transformed to MAP Frame', self.Lat_Width, self.Long_Length)
         return GlobalMap, MapIdx_G
 
-    def PlotMap(self,Map,Pose_X_t,title,lat_lim,long_lim):
+    def PlotMap(self,Map_in,Pose_X_t,title,lat_lim,long_lim):
         Veh = patches.Rectangle((Pose_X_t[0]+self.MapDim-5 , Pose_X_t[1]+100+self.MapDim-3.5),5,3.5, Pose_X_t[2],linewidth= 0.5, edgecolor='r')          
+        Map = Map_in.copy()
+        Map[np.where(Map>1)]=1
         probMap = np.exp(Map)/(1.+np.exp(Map))
         plt.title(f"{title} x:{np.round(Pose_X_t[0],5)} , y:{np.round(Pose_X_t[1],5)}, yaw:{np.round(Pose_X_t[2],5)}")
         plt.ylim(0,lat_lim)
         plt.xlim(0,long_lim)
+        plt.xlabel('longitude(m)')
+        plt.ylabel('latitude(m)')
         self.ax.add_patch(Veh)                
         plt.imshow(probMap.T, cmap='Greys')
         #plt.savefig('/Local/Local{title}.png')        
