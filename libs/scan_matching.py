@@ -511,7 +511,7 @@ class ICP():
     def match_LS(self,Meas_Z_t,Meas_Z_t_1,Est_X_t,Est_X_t_1,Iter = 100,threshold = 0.000001, Mode = 'GT'):
         # Using Gausss Newton approximation
         chi2_lst, X_lst = [], []
-        bound = 3
+        bound = 2
         del_x = np.array([0.,0.,0.]).reshape(3,-1)
         # del_x = (Est_X_t[:3] - Est_X_t_1[:3]).reshape(3,-1)
         # del_x[2] = np.deg2rad(del_x[2])
@@ -563,6 +563,7 @@ class ICP():
         minIndx,_ = np.where(chi2_lst==min(chi2_lst))
         Trans_Lst = X_lst[minIndx-1][0].flatten()
         Trans_Lst[2] = np.rad2deg(Trans_Lst[2])
+        # print(Trans_Lst)
         if Mode == 'GT':
             Trans_Lst = poseComposition(Est_X_t_1, Trans_Lst)   
         error = max(min(chi2_lst),0.00001)
@@ -727,14 +728,14 @@ class RTCSM():
         temp = temp/temp.sum()
         confidence = temp.max()
         dx, dy, dtheta = Xrange[maxIdx[2]]*searchStep , Yrange[maxIdx[1]]*searchStep, ori_space[maxIdx[0]]
-        print(maxIdx)
+        # print(maxIdx)
         # if confidence>0.056:
         #     print("cx")
         Updt_X_t = [Est_X_t[0] + dx, Est_X_t[1] + dy, Est_X_t[2]+dtheta]
         # print(TargetMap.max())
         # print(f'Mode = {mode},Est = {Est}, Updt = {Updt_X_t}')
         # if (confidence) < 0.5:
-        print(confidence)
+        # print(confidence)
         return Updt_X_t , 1/confidence
         
     def rotate(self, Est_X, Meas):

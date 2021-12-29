@@ -33,7 +33,7 @@ class Analyze:
         self.odom_x.append( Meas_X_t['x'])
         self.odom_y.append( Meas_X_t['y'])
         self.odom_yaw.append( Meas_X_t['yaw'])
-        self.steer.append(np.rad2deg(Meas_X_t['steer']))
+        self.steer.append(Meas_X_t['steer'])
         self.time.append(Meas_X_t['t'])
         
     def _set_trajectory(self,Est_X_t,st_prime):
@@ -140,23 +140,25 @@ class Analyze:
         plt.legend(loc = 'best')
         plt.show()
 
-    def error_plot(self):
+    def error_plot(self,Particle_N, AccErr):
         # corrected vs True
         # mean difference of location
-        plt.savefig(f'{self.title}_PositionPlot')
+        plt.savefig(f'results/{self.title}_Map.png')
         plt.close()
-        plt.savefig(f'{self.title}_Map')
+        plt.savefig(f'results/{self.title}_PositionParameters.png')
         plt.close()
         plt.figure()
         pos_diff_x = np.subtract(self.corrected_x, self.True_x)
         pos_diff_y = np.subtract(self.corrected_y, self.True_y)
         yaw_diff = np.subtract(self.corrected_yaw, self.True_yaw)
         plt.xlabel('Simulation Time (s)')
-        plt.plot(pos_diff_x, 'r+' ,label = 'X_diff (m)')
-        plt.plot(pos_diff_y, 'g+',label = 'Y_diff (m)')
-        plt.plot(yaw_diff,  'b+', label = 'Yaw_diff (degrees)')
+        plt.grid('on')
+        plt.plot(pos_diff_x, 'r+' ,label = 'X_diff (m)',markersize=5)
+        plt.plot(pos_diff_y, 'g+',label = 'Y_diff (m)',markersize=5)
+        plt.plot(yaw_diff,  'b+', label = 'Yaw_diff (degrees)',markersize=5)
         plt.legend(loc = 'best')
-        plt.savefig(f'{self.title}_True_vs_Crct')
+        plt.savefig(f'results/{self.title}_True_vs_Crct.png')
+        plt.close()
         print(f"The mean of diff b/t True and corrected: X:{np.mean(pos_diff_x)}, Y:{np.mean(pos_diff_y)},Yaw:{np.mean(yaw_diff)}")
 
         # corrected vs odom
@@ -165,11 +167,13 @@ class Analyze:
         pos_diff_y = np.subtract(self.corrected_y, self.odom_y)
         yaw_diff = np.subtract(self.corrected_yaw, self.odom_yaw)
         plt.xlabel('Simulation Time (s)')
-        plt.plot(pos_diff_x, 'ro' ,label = 'X_diff (m)')
-        plt.plot(pos_diff_y, 'go',label = 'Y_diff (m)')
-        plt.plot(yaw_diff,  'bo', label = 'Yaw_diff (degrees)')
+        plt.grid('on')
+        plt.plot(pos_diff_x, 'ro' ,label = 'X_diff (m)',markersize=5)
+        plt.plot(pos_diff_y, 'go',label = 'Y_diff (m)',markersize=5)
+        plt.plot(yaw_diff,  'bo', label = 'Yaw_diff (degrees)',markersize=5)
         plt.legend(loc = 'best')
-        plt.savefig(f'{self.title}_Odom_vs_Crct')
+        plt.savefig(f'results/{self.title}_Odom_vs_Crct.png')
+        plt.close()
         print(f"The mean of diff b/t Odom and corrected: X:{np.mean(pos_diff_x)}, Y:{np.mean(pos_diff_y)},Yaw:{np.mean(yaw_diff)}")
     
     def analysis_metrics(self):

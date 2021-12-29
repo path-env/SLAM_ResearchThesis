@@ -18,14 +18,15 @@ from libs.occupancy_grid import Map
 from libs.scan_matching import ICP, RTCSM, Scan2Map
 # from main.ROSBag_decode_gmap import ROS_bag_run
 class Gmapping():
-    def __init__(self, plotter, N):
+    def __init__(self, plotter,SM, N, AccErr):
         self.iteration = 0
         self.particleList  = []
         self.aly = plotter
         self.OG = Map()
         self.particleCnt = N
         self.parl = Parallel()
-        self.SM_method = 0
+        self.SM_method = SM
+        self.SM_ErrThresh = AccErr
         self.model_used = np.array([0,0,0])
         
     def noise_matrix(self, No_sample, var):
@@ -53,18 +54,18 @@ class Gmapping():
         dd.append(Meas_X_t[2])
         dd.append(Meas_X_t[3])
         # self.particleList, self.model_used = self.parl._parallelize(self.particleList, cmdIn, Meas_Z_t,self.Meas_Z_t_1, dt, self.OG.MapIdx_G,
-        #                                             self.prev_scan_update,dd)
+        #                                             self.prev_scan_update,dd, self.SM_ErrThresh)
         confi = []
         ###
         for P in self.particleList:
             # print(f"Particle {P.id} is being processed")
             st_prime = P.motion_prediction(cmdIn, dt)
             GT,GT_Lst = P.scan_match(st_prime,self.prev_scan_update, Meas_Z_t, self.Meas_Z_t_1, method =self.SM_method)
-            print(GT['error'])
+            # print(GT['error'])
             confi.append(GT['error'])
             MapIdx_G = self.OG.MapIdx_G.copy()
             MapIdx_G[[1,0],:] = MapIdx_G[[0,1],:]
-            if GT['error'] > P.err_thresh: #ICP SVD= 0.1. #ICP LS = 0.0015 
+            if GT['error'] > self.SM_ErrThresh: #P.err_thresh: #ICP SVD= 0.1. #ICP LS = 0.0015 
                 #ScanMatch results very poor , use the motion model prediction
                 P.st = st_prime
                 P.w = P.w * lklyMdl(Meas_Z_t.to_numpy().T, P.st ,MapIdx_G)
@@ -146,7 +147,7 @@ class Gmapping():
             norm += P.w
         mu = mu/norm
         diff = mu[:3] - dd[:3] 
-        print(f'diff:{(diff)}')
+        # print(f'diff:{(diff)}')
         self.prev_scan_update = mu
         self.aly._set_trajectory(mu,heavyPart)
         self.OG.Update(mu, Meas_Z_t,True)
@@ -167,10 +168,9 @@ class Gmapping():
             NewParticleLst.append(NP)
         self.particleList = NewParticleLst
 
-    def run(self,Meas_X_t, Meas_Z_t, GPS_Z_t, IMU_Z_t, SM_method):
+    def run(self,Meas_X_t, Meas_Z_t, GPS_Z_t, IMU_Z_t):
             # try:
-        self.SM_method = SM_method    
-        print(f"Time - {Meas_X_t['t']}sec, Iteration:{self.iteration}")   
+        # print(f"Time - {Meas_X_t['t']}sec, Iteration:{self.iteration}")   
         if 'Range_XY_plane' not in Meas_Z_t.keys():
             Meas_Z_t = Lidar_3D_Preprocessing(Meas_Z_t)
         Meas = np.array([Meas_X_t['x'], Meas_X_t['y'], Meas_X_t['yaw'], Meas_X_t['v'], Meas_X_t['acc'], Meas_X_t['steer'], Meas_X_t['t']])
@@ -200,18 +200,18 @@ class Parallel:
     def __init__(self) -> None:
         self.model_used = np.array([0,0,0])
 
-    def _parallelize(self,PartcileList,cmdIn, Meas_Z_t, Meas_Z_t_1,dt, MapIdx_G,prev_scan_update,dd):
+    def _parallelize(self,PartcileList,cmdIn, Meas_Z_t, Meas_Z_t_1,dt, MapIdx_G,prev_scan_update,dd, SM_ErrThresh):
         particles = []
         with concurrent.futures.ProcessPoolExecutor() as executor:
             # results = [executor.submit(self._particleAnalysis, P,cmdIn, Meas_Z_t,Meas_Z_t_1, dt,MapIdx_G,prev_scan_update,dd) for P in PartcileList]
-            results = executor.map(functools.partial(self._particleAnalysis,cmdIn, Meas_Z_t,Meas_Z_t_1, dt,MapIdx_G,prev_scan_update,dd),PartcileList)
+            results = executor.map(functools.partial(self._particleAnalysis,cmdIn, Meas_Z_t,Meas_Z_t_1, dt,MapIdx_G,prev_scan_update,dd, SM_ErrThresh),PartcileList)
             for p,i,j in results:
                 particles.append(p)
                 self.model_used[0]+=i
                 self.model_used[1]+=j
         return particles, self.model_used
     
-    def _particleAnalysis(self, cmdIn, Meas_Z_t,Meas_Z_t_1, dt,MapIdx_G,prev_scan_update,dd, P):
+    def _particleAnalysis(self, cmdIn, Meas_Z_t,Meas_Z_t_1, dt,MapIdx_G,prev_scan_update,dd, P, SM_ErrThresh):
         MM,SM =0,0
         # print(f"Particle {P.id} is being processed")
         st_prime = P.motion_prediction(cmdIn, dt)
@@ -220,7 +220,7 @@ class Parallel:
         # confi.append(GT['error'])
         MapIdx_G = MapIdx_G.copy()
         MapIdx_G[[1,0],:] = MapIdx_G[[0,1],:]
-        if GT['error'] > P.err_thresh: #ICP SVD= 0.1. #ICP LS = 0.0015 
+        if GT['error'] > SM_ErrThresh: #ICP SVD= 0.1. #ICP LS = 0.0015 
             #ScanMatch results very poor , use the motion model prediction
             P.st = st_prime
             P.w = P.w * lklyMdl(Meas_Z_t.to_numpy().T, P.st ,MapIdx_G)
