@@ -1,0 +1,9 @@
+The analysis in the previous chapter show that ICP-LS provides better results in terms of accuracy and ICP-SVD provides good results at reasonable computation efficiency.The evaluation was only performed over one dataset but could be easily extended  against various datasets.
+\par
+The study and implementation provide understanding on how efficient are the scan matching algorithms with the current system of particle filter based SLAM. It is also to be noted that the implementation could also be made more efficient with better coding practises or even choice of programming language. The performance could also change cast if the scan matching algorithms are used and evaluated with different approaches of SLAM such as graph based SLAM. 
+\par 
+The experiments could also be performed in less structured environment or in cases where the sensor failed to capture sufficient measurements. In case of less structured environment, for example in a long hallway, it is easier for a mobile robot to assume wrong location. Techniques like loop closing could help to alleviate such problems. In case of less measurements, such that the measurements are not taken at sufficient intervals can lead to divergence in the prediction if the consecutive measurements are not taken at frequent intervals. More stable methods of scan matching with sensor fusion could help in such scenario.
+\par
+The implementation could be extended for graph based SLAM methods which are proven to be more efficient than the particle filter based SLAM methods. As all algorithms are implemented as modules, various scan matching techniques could be plugged in with minimal effort for evaluation and analysis. With further extension, 3 dimensional scan matching procedures could also be implemented and evaluated.
+
+This work provides a ground from which many scan matching algorithms can be implemented and evaluated.

@@ -1,0 +1,33 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		}
+	],
+	"settings": {
+		"python.pythonPath": "/usr/bin/python3",
+		"python.jediEnabled": true,
+		"python.autoComplete.extraPaths": [
+			".."
+		],
+		"python.analysis.extraPaths": [
+			".."
+		],
+		"latex-workshop.latex.bibDirs": [
+			"/home/mangaldeep/workspace/SLAM_ResearchThesis/docs/bib"
+		]
+	},
+	"launch": {
+		"version": "0.2.0",
+		"configurations": [
+			{
+				"name": "Python: Current File",
+				"type": "python",
+				"request": "launch",
+				"program": "${file}",
+				"env": {"PYTHONPATH": "${workspaceRoot}"},
+				"console": "integratedTerminal"
+			}
+		]
+	}
+}

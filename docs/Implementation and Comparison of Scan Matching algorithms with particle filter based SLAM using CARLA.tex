@@ -1,0 +1,90 @@
+%% Benjamin Williams <bwilliams@lincoln.ac.uk>
+%% Get in touch if you have any questions or problems!
+%% University of Lincoln Computer Science Thesis Template
+
+%% @version     1.0.7
+%% @lastchanged 26/04/2021
+
+% The document class -- remove [harvard] if you want
+% numeric-style referencing.
+\documentclass[harvard]{lincolncsuthesis}
+% Packages you want to use
+\input{preamble/packages.tex}
+
+% Bibliography setup: import bib files
+\input{preamble/bib-setup.tex}
+
+% Your thesis details -- edit the file at the path below
+% so it shows your name, title, etc. 
+\input{preamble/details.tex}
+
+\begin{document}
+
+% First, make the title
+\maketitle
+
+% Input anything that can go before the acknowledgements 
+%\input{chapters/0_blank-pages.tex}
+
+
+% Then the abstract
+\input{chapters/1_abstract.tex}
+
+% Then the acknowledgements
+%\input{chapters/2_acknowledgements}
+
+% Print out the table of tables and table of figures and
+% tell the template we're about to start the body of the
+% thesis.
+\thesisTables
+% Indexes, Glossaries
+
+\thesisBodyStart
+% start of thesis body
+% ---------------------------
+
+% Include introduction
+\chapter{Introduction}
+\label{chap:Introduction}
+\input{chapters/5_introduction.tex}
+
+% Literature review / Background / Related work
+\chapter{Literature review}
+\label{chap:Literature}
+\input{chapters/6_literature-review.tex}
+
+% SLAM Formulation + State Prediction and correction
+\chapter{Formulation}
+\label{chap:Formulation}
+\input{chapters/7_formulation.tex}
+
+\chapter{Particle Filter}
+\label{chap:Particle}
+\input{chapters/8_particlefilterapproach.tex}
+
+\chapter{Scan Matching}
+\label{chap:Scan}
+\input{chapters/9_scanmatching.tex}
+
+\chapter{Comparison and Benchmarking}
+\label{chap:Comparison}
+\input{chapters/10_benchmarking.tex}
+
+% Conclusions / Findings
+\chapter{Conclusions}
+\label{chap:Conclusions}
+\input{chapters/11_conclusions.tex}
+
+% Reflective analysis
+\chapter{Reflective Analysis}
+\label{chap:Reflective}
+\input{chapters/reflective-analysis.tex}
+
+% end of thesis body
+% --------------------------
+% Print out the references
+\printReferences
+% Appendices: feel free to comment these out if you are 
+% not going to use them.
+%\include{chapters/appendices.tex}
+\end{document}

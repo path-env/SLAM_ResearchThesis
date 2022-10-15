@@ -1,0 +1,109 @@
+\section*{Introduction}
+Unveiling the full potential of LiDAR and its robustness in creating a scan map of the environment, LiDAR Odometry and Mapping(LOAM) was presented in \cite{ZhangS14}. In this approach only a subset of the point clouds is used to extract useful features such as planes, lines and edges that is later used to derive various metrics for the scan registration. In \cite{D.Hahnel}, consistent Maps were generated with the help of 2D scan matching and also were able to detect and track people even with the help of sample based Joint Probabilistic Data association filter. Depending on how the point cloud data is modelled existing approaches can be classified into global and local scan matching. In global scan matching the point cloud is considered as a whole, but in local scan matching only segments of the point cloud are matched.
+
+Some of the local scan matching approaches include Iterative Closest Point(ICP), Normal  Distribution Transform (NDT) representation of maps and Global scan matching approaches include Correlative Scan Matching(CSM)
+
+\section{Iterative Closest Point}
+It is the most well-known widely used algorithm known for  efficient registration of given two 2D or 3D scan or point cloud data under euclidean transformation. It is the most simple and intuitive algorithm. Provided the correspondence between the points in the point cloud and with a  approximate initial guess, ICP tries to find the optimal motion parameters - rotation $\mathcal{R}$ and translation $\mathcal{T}$ of given two point cloud data. In practice the correspondence is usually unknown, hence iterative procedure is followed with good initial guess. If the initial guesses are close enough ,a converging solution is obtained. The iteration is generally stopped after certain number of iterations or if the error value reaches below a threshold. Different variants of ICP such as Point-to-Point, Point-to-Plane, Plane-to-Plane exists each with its pros and cons. 
+
+\paragraph{ICP using Spectral Value Decomposition}
+First proposed in \cite{KS.Arun}, the centroid of the two point cloud data are aligned and relative rotation of the two point cloud data is obtained using SVD such that the least squared error is minimized. In simple words the squared error in the observation from two different relatively close view points need to be minimized. This approach provides closed form solution only when the point correspondence of two point clouds is known. Hence it is iterated over until convergence.
+\par
+Given the two point cloud data $p_1$ and $p_2$, where $p_2 = \mathcal{R} p_1 + \mathcal{T} + N$, find $\mathcal{R}$ and $\mathcal{T}$ such that error function
+\begin{gather} \label{ICP-error}
+    E(\mathcal{R}, \mathcal{T}) = \frac{1}{N_{p_1}}  \Sigma_{i=1}^{N_{p_1}}\left\lVert p_2 - \mathcal{R} p_1 -\mathcal{T} \right\rVert^2 
+\end{gather}
+is minimized.
+where $N_{p_1}$ is the number of points in the point cloud data.
+
+It can be accomplished by taking mean of the point clouds $p_{1}$ and $p_{2}$ such that
+\begin{gather} \label{ICP}
+            \mu_{p_1} = \frac{1}{N_{p_1}} \sum\limits_{i=1}^{N_{p_1}} p_{1_i}\\
+            \mu_{p_2} = \frac{1}{N_{p_2}}  \sum\limits_{i=1}^{N_{p_2}} p_{2_i}\\
+            P_{1} = p_{1} - \mu_{p_{1}}\\
+            P_{2} = p_{2} - \mu_{p_{2}}\\
+            H  \triangleq  \sum\limits_{i=1}^{N} P_{1} P_{2}^{T}
+\end{gather}
+Now to find the rotational component of the motion parameters $\mathcal{R}$, Spectral Value Decomposition can be applied on the cross covariance matrix $H$.
+
+When the rank(H) = 3, then a unique and optimal solution for $E(\mathcal{R}, \mathcal{T})$ is obtained. The rotational component $\mathcal{R}$ can be obtained by:
+\begin{gather} 
+\mathcal{R} = \mathcal{U} \mathcal{V}^T
+\end{gather}
+
+The translation component $\mathcal{T}$ can be obtained by:
+\begin{gather}
+\mathcal{T} = \mu_{p_1} - \mathcal{R}\mu_{p_2}
+\end{gather}
+
+The error encountered in the process is given by:
+\begin{gather}  
+E(\mathcal{R}, \mathcal{T}) = \Sigma_{i=1}^{N_{p_2}}(\left\lVert x_i^{'} \right\rVert^2 + \left\lVert y_i^{'} \right\rVert^2) - 2* \text{Singular values of } H.
+\end{gather}
+
+The approach presented above is applicable to point to point alignment and it could be modified and used for other variants of ICP. Being an iterative procedure and non-convex problem, ICP is susceptible to settle at local minima. This might result in non optimal solution. Methods such as GO-ICP \cite{Yang_2016} were developed for global optimal solution. It is based on \textit{Branch-and-Bound(BnB)} theory for global optimization and the local-ICP procedure. It constitutes a outer loop of \textit{BnB} search in the rotation space of SO(3) and then solves for optimal search in inner loop for translational space. The search for the optimal parameters then stops on reaching a so-far-the best error threshold or the search is terminated when the search cubes are sufficiently small. 
+\par
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\paragraph{ICP using Gauss-Newton (Least squares approach)}
+However this put restrictions on the choice of error function to be used, hence a more generic approach to find solution to the problem is to take least squares using Gauss-Newton method. This method also tries to minimize the error but the error function can be chosen appropriately. The error function is then linearized using Taylor series expansion and by forming the Hessian matrix and Jacobian vector the desired parameters can be obtained iteratively. 
+\par
+Given the two point cloud data $p_1$ and $p_2$, , where $p_2 = \mathcal{R}p_1 + \mathcal{T} + N$,the error function defines how varied are the points.
+Let the error function be
+\begin{gather} 
+    E(\mathcal{R}, \mathcal{T}) = \Sigma_{i=1}^{N_{p_1}}\lVert p_2 -  p_1 \rVert^2
+\end{gather}
+assuming the correspondences are known.
+\par
+Linearizing the above equation
+\begin{gather} 
+    E(\mathcal{R}+\Delta{R} , \mathcal{T}+ \Delta{T}) = E(\mathcal{R}, \mathcal{T}) + \mathcal{J}_E(\mathcal{R}, \mathcal{T})(\Delta{R} ,\Delta{T})
+\end{gather}
+where,
+\begin{gather} 
+    \mathcal{J}_E(\mathcal{R}, \mathcal{T}) = \partial (E) / \partial (\mathcal{R}, \mathcal{T})
+\end{gather}
+
+Solving the above error equation by Gauss-Newton approach, the change in the parameters is derived as a small step towards reaching the global minimum of the error function.
+\begin{gather}
+    \Delta(X) = -\mathcal{H}^{-1} b
+\end{gather}
+    where,
+\begin{gather}
+    \mathcal{H} = \mathcal{J}_E^{T}\mathcal{J}_E\\
+    b = \mathcal{J}_E^{T} E
+\end{gather}
+
+Since the Gauss-Newton approach takes only in steps to reach the global minima, the procedure is repeated in iterations.
+\par
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\paragraph{ICP with Point-to-Plane correspondence}
+The point to point correspondence assumed in the above methods can be achieved using Nearest Neighbour algorithms. However this strategy might lead to wrong correspondences as it only considers the points as discrete whereas in reality these points actually represent the hidden structure in the surrounding. Thus considering the surfaces of the obstacle would provide better correspondences, this leads to Point-to-Plane matching.
+\par
+In the Point-to-Plane correspondence still the closest points are considered as initial guess to define the surface. Then the point to point projection of the error vector is projected on to the surface of the normal of the target scan. This process is repeated until the projection of error vector on the normal is minimal. The Point-to-Plane correspondence can be used along with Gauss-Newton approach to get better maps.
+\par
+Further the robustness of the ICP algorithms can be enhanced by rejecting the outliers in the point cloud data such as dynamic obstacles and reflections.
+
+\section{Real-Time Correlative Scan Matching}
+Perhaps the most efficient, intuitive and robust method commonly used in almost all modern day robot for scan matching is the Real-Time Correlative Scan Matching proposed by E.Olson in \cite{E.B.Olson} inspired from \cite{Konolige} correlation based localization. It provides a novel multi-resolution approaches to compute the motion parameters in conventional CPU's and modern day GPU's. It is based upon cross correlation for two LiDAR scans through probabilistic approach. It finds the rigid body transformation that maximizes the probability of having observed a scan instead of using a local search algorithm to find global maximum. The efficient computation of the density $p(z_t | x_t, m)$ is made possible by implementing a multi-level resolution of the rasterized cost map. First a low-resolution cost map is used to find the area of the global maximum with the position of the robot established predicted by the motion model. This ensures that search volume in high resolution is reduced. With the region of global maximum observed, the search is repeated with the high-resolution cost map. This method proves to be exceptionally robust and it is been widely used in the industry and many open source SLAM implementations like cartographer. This method has an advantage that it not only computes the motion parameters, but it tries to compute the entire density $p(z_t | x_t, m)$, hence uncertainty of the estimated motion parameters is also calculated.
+\par
+Based on \cite{E.B.Olson}, a similar multi-resolution approach is proposed with increased accuracy and better quality in \cite{P.Vath}. In this the author uses not only the occupied cells but also the unoccupied cells for scoring the scan match based on the choice of pose in the 3D search space.The score function adds up positively in case of matching occupied cells and negatively for mismatching unoccupied cells.
+
+\section{Normal Distribution Transform}
+\cite{P.Biber} proposed an alternative method for matching LiDAR scans using normal distributions(NDs) to cells in a local map that can be used to match another normal distributed cells in a map using Newton's optimization algorithm. The Occupancy grid created around the robot is discretized into cells of appropriate size and a normal distribution is formed for the cells that contain more than 3 detections in it.Now a 2D plane in the form of probability distribution is achieved. In order to minimize discretization effects, maps are shifted by all 4 directions are overlapped to get a continuous distribution.
+\par
+    In order to match two given scans, the NDT of the first scan is created and with the predicted motion parameters, the second scan points are mapped into the coordinate frame of first 
+scan and the normal distribution is constructed for each matched point. The score for the parameters is determined by evaluating the distribution and summing the result. This is then optimized using Newton's equation and repeated until the convergence is met. Since only the distribution of the detections is considered, it is proven to be faster than ICP. The algorithm is proven to work efficient for SLAM and position tracking. Similar approach was taken by \cite{K.Ryu}, new scans were matched to previous scan by ICP but later corrects the error by matching to globally defined map. The global map is constructed as a Normal Distribution and the new scan is matched to the NDs for correcting the errors. Thus it performs a ND-to-ND matching using \textit{Kullback-Leibler(KL)} divergence. The author claims that this methods has the benefits of both ICP and NDT
+\par
+\cite{HaoFU} evaluated popular scan matching approaches using a LiDAR data set recorded in off-road environment and proposed an alternative approach combining local and global  scan matching to obtain the best of both.
+
+\section{Loop Closure}
+In several cases the robot might traverse through a previously visited location and it must be able to recognize it and it is termed as \textit{loop closing}. This enables to achieve better accuracy of the map. Apart from map building the ability of robots to recognize the previously visited place or learned location enables the bot to fallback to the specific location in use cases such as trouble shooting, charging dock and determining destination. The problem of Loop closure is challenging as in the real world the algorithm must be able to achieve good results even in dynamic environment. Also the robot must be capable of identifying similar looking environment. This method of relating the current measurement with a previous measurement is a process of \textit{data association}. Errors are common in \textit{data association} and it leads to divergence of the map when the errors in \textit{data association} are not handled carefully. With the presence of landmarks the covariance information of the landmarks is required.
+\par
+\cite{E.Olson/LocalSM} proposed methods to determine whether a local scan match is globally correct. It also incorporates ambiguity and outlier testing using \textit{Single Cluster Graph Partitioning (SCGP)}. It also argues that the amount of evidence to determine the similarity between two places scales with robots positional uncertainty. Find local matches within a search area provided by a prior, then combine multiple scans to get a larger local matches. In order to estimate the relative positional uncertainty between nodes a and b, the determinant of the covariance matrix provides the search space to find the pose b from pose a. Using Dijkstra projection algorithm, the uncertainty is estimated and the relative uncertainty between two paths is dominated by the shortest one. 
+\par
+In order to  determine the outliers while determining loop closures, It is necessary to identify and group the related poses that are close-by and compute a pair-wise consistency within all the poses in the group. If the belief of the poses are correct then by forming a loop of rigid body transformations, the resultant of pose composition of all the pair-wise consistent poses would result in identity transform ideally. 
+\par
+Apart from SGCP methods such as Combined Constraint Data Association, Joint Compatibility Branch and Bound and Cyclic verification of cumulative transformations are also available to remove false positive loop closures. However the performance of these methods depends on good initialization \cite{P.Agarwal}.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Summary}
+Scan matching performs correction step in the pose estimation and mapping using gMapping. Several scan matching methods are used for various applications and algorithms such as ICP, RTCSM and NDT are commonly used in SLAM applications. ICP has several variants such as Least squares, Spectral Value Decomposition..., it tries to find the relative transformation between two close poses iterative. RTCSM takes a different approach by correlating the scan with the map and finding the relative transformation in case of a good alignment. NDT on the other hand uses normal distribution of the new scan and tries to align it with the existing normal distribution of the map. ICP and RTCSM methods are studies in detail and implemented. These methods are also evaluated and compared in the next chapter.

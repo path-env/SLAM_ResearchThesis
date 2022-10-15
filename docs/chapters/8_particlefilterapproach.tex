@@ -1,0 +1,98 @@
+\section*{Introduction}
+Parametric filters such as EKF work on the assumption that posterior density is Gaussian parameterized by mean and covariance. In cases where the true density is non Gaussian, these filters fail to describe the actual posterior. In many practical applications, linear and Gaussian assumptions would not hold true, hence better approaches are required to describe the posterior density. Particle Filters are non parametric filters which can model any posterior distribution as it does not assume to be Gaussian. This chapter provides in-depth view of particle filters and its application to SLAM.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Particle Filter}
+Particle Filters manage to model the required distribution by use of a set of random samples sampled from the distribution. However no a-prior information about the distribution is known. Hence a proposal distribution is used as a initial guess to sample particles from it and weigh it against the target distribution. This process is repeated until the proposal distribution matches the target distribution(i.e. until all the weights are equal or one).
+\par
+It requires re-sampling from the proposal distribution when necessary. The samples which weigh more are more likely to describe the target distribution. This leads to further discussion on what could be the guess on proposal distribution, how is it sampled, weighed, re-sampled and sequentially continued to obtain the full state estimate.
+
+\subsection{Sampling}
+Sampling in particle filters in based on Sequential Importance Sampling principle and Sequential Monte-Carlo methods. Samples in general are generated in random from a proposal distribution. The more samples we are able to sample , the better is the approximation of the target distribution. With larger number of samples, Monte-Carlo methods provide equivalent representation of the target distribution and Sequential Importance Sampling approaches optimal Bayes estimate \cite{S.Arulampalam}. In case of the Monte-Carlo approximation methods, the samples obtained are independent samples of the target distribution, whereas in the Importance Sampling method, the samples obtained are not only independent of the target distribution but independent on the proposal distribution as well. Thus the weights of each sample are not equal as in the case of Monte-Carlo approximation methods.
+
+Let ${x^{1},x^{2},.........x^{N}}$ be list of ${N}$ particles generated from the proposal distribution ${q(x)}$.
+\begin{gather} \label{Sample}
+    p(x) \approx \sum_{i = 1}^{N} w^{i}\delta (x - x^{i})  
+\end{gather} 
+where $\delta$ is the impulse function, ${p(x)}$ is the target distribution, ${w^i}$ is the weight of the ${i^{th}}$ particle. The above equation provides the weighted approximation of the true density given that the proposal distribution is similar to the target distribution and it is easy to sample from the proposal distribution. A typical example of a proposal distribution is the Gaussian distribution. However modeling the proposal distribution effectively for the task is discussed in later sections.
+
+\subsection{Importance weighting}
+Importance weighting is an useful outcome of \textit{Importance sampling principle}. Each particle is weighed based on its similarity to the target distribution. More the similarity, higher is the value of the weights. 
+\begin{gather} \label{ImportanceWeigting}
+    w \propto \frac{p(x)}{q(x)} 
+\end{gather}
+The weights are always normalized for reasons discussed further below.
+
+\subsection{Sequential Importance Sampling}
+Sampling and weighting discussed above are useful to estimate the state for a given instance. However in most applications it is required to estimate the state recursively for every time instance using the previous state and the current reading. This is the core of the Sequential Importance Sampling. It involves sampling, weighting recursively. In the sampling step as the sample from the motion model estimate is sufficient as the prior information until the previous instance is already processed.
+For the ${i}^{th}$ particle:
+\begin{gather} \label{SIS_Sample}
+    x_{0:t}^{i} \approx q(x_{0:t}| y_{1:t}) 
+\end{gather}
+where ${q(x_{0:t}| y_{1:t})}$ is the posterior density of the proposal distribution that could be factorized as 
+\begin{gather} \label{SIS_propfact}
+    q(x_{0:t}| y_{1:t}) = q(x_t|x_{t-1},y_{t}) q(x_{0:t-1}| y_{1:t-1}).
+\end{gather}
+In the weighting step the proposal is compared to the target density also considering its prior weight update:
+\begin{gather} \label{SIS_weight}
+    w_{t}^{i} = w_{t-1}^{i} \frac{p(y_{t}|x_{t}^{i}) p(x_{t}^{i}|x_{t-1}^{i})}{q(x_t|x_{t-1},y_{t})}.
+\end{gather}
+With the right choice of the proposal distribution the weights can be derived with measurement model.
+\begin{gather} \label{SIS_weightprop}
+    q(x^i_t|x^i_{t-1},y_{t}) = p(x^i_t|x^i_{t-1})\\
+    w_{t}^{i} = w_{t-1}^{i} * p(y_{t}|x_{t}^{i})
+\end{gather}
+In most cases the weights of the particles in a sample set can end up with high variance, due to which the particle with the highest weight gets sampled repeatedly in the re-sampling step. This is referred to as \textit{Particle Degeneration}. Hence the system's belief is stuck to one particle leading to ignorance of uncertainty and consecutively to divergence of the filter from the true value.
+
+\subsection{Resample}
+As the variance of the weights increase the sample set is dominated only by very few particles with high weight that results in poor state estimate. Hence to avoid it is better to perform a re-sampling step where N particles are sampled from the current particle set using various strategies. Depending on the strategies used to re-sample various re-sampling techniques exists such as Systematic re-sampling, Random re-sampling, Selective re-sampling \dots. This replaces the old sample set with new set of samples with equal weights. However in most cases the clarity of tolerable variance of the weights for a particle set is not clear. In \cite{GMap_algo},it is found that Adaptive re-sampling provides the best criteria for re-sampling. It follows the intuition that if all the samples are same as that from the target distribution then ${N_{eff}}$ is higher and re-sampling is not required, but when difference between target and proposal are higher then the variance of the weights are higher and ${N_{eff}}$ reduces. This requires calculating the effective number of the particles ${N_{eff}}$:
+\begin{gather} \label{Neff}
+N_{eff} = \frac{1}{\sum_{i=1}^{N} w_{i}^{2} } 
+\end{gather}
+where ${w_{i}}$ is normalized weight of the particles in the sample set and ${N}$ is the number of particles.  Re-sampling is performed only 
+when the ${N_{eff} < N/2}$.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Rao-Blackwellized Particle Filter}
+ This method exploits the spatial structure in particle filter. Instead of applying particle filter on all dimensions, use particle filter only in few dimensions but exploits linearity in other dimensions. In case of SLAM the joint posterior $p(x_{1:t}, m | z_{1:t}, u_{1:t-1})$ can be factorized as 
+\begin{gather} \label{RAoB}
+    p(x_{1:t}, m | z_{1:t}, u_{1:t-1}) = p(m | z_{1:t}, x_{1:t}).p(x_{1:t} | z_{1:t}, u_{1:t-1})
+\end{gather}
+where the problem of solving the joint posterior disintegrates to $p(m | z_{1:t}, x_{1:t})$ mapping that is the linear part in the spatial structure and $p(x_{1:t} | z_{1:t}, u_{1:t-1})$ localization where particle filter can be applied. By estimating the trajectory of positions, then the mapping can be performed easily. With the right choice of the proposal distribution, where it can be resolved into recursive terms as in \refeq{SIS_propfact} then the weight calculation can also be done recursively.
+\begin{gather} \label{RaoB_weight}
+    w_{t}^{i} = w_{t-1}^{i} \frac{p(z_{t}|x_{t}^{i}, m_{t-1}^{i}). p(x_{t}^{i}|x_{t-1}^{i}, u_{t-1})}{q(x_t|x_{t-1}^{i},z_{t}, u_{t-1})}
+\end{gather}
+This is followed by the re-sampling step and the estimation is carried over recursively.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{gMapping- Improved RBPF}
+The proposal distribution discussed so far use the motion model that is easy to compute for most type of robots and recursive calculation of the importance weights used only the measurement model to update the previous importance weight. However this can result in sub-optimal maps in systems with a laser sensor as it could provide better accurate information than the motion estimate\cite{GMap_algo}. Hence using the sensor observation in the proposal distribution can provide better approximation than the motion estimate. In the case of grid mapping the number of occupied cell state explodes that makes it difficult to calculate the importance weight update recursively. Hence the known proposal distribution can be obtained using the adapted particle filter where the proposal distribution of each particle is derived from sampled estimate of optimal proposal distribution. It is observed that the likelihood of the robot position with the help of sensor observations has only one peak with small variance. Hence limiting the sample of the proposal to this likelihood would help in reduced sample set as very few particles can easily describe the distribution. 
+\begin{gather} \label{gMap-L}
+    L^{(i)} = \{ x | p(z_t| m_{t-1}^{(i)},x)>\epsilon\} 
+\end{gather}
+This region consists of information from the observation likelihood and motion model. In order to determine the region of maximum likelihood a scan matching procedure is applied. 
+\begin{gather} \label{gMap-SM}
+    \hat{x_t} = argmax_x p(x|m_{t-1}^{(i)}, z_t, x_t^{(i)})
+\end{gather}
+Several scan matching procedures are experimented in this thesis and it will be described and compared in the later chapters. With the region of high likelihood derived now a second generation of samples are generated 
+\begin{gather} \label{gMap-2samp}
+    x_k \approx \{x_j | |x_j - \hat{x^{(i)}}|<\epsilon \}
+\end{gather}
+can be efficiently derived from which mean and variance of the sample set is calculated. 
+\begin{gather} \label{gMap-mu}
+    \mu_t^{(i)} = \frac{1}{\eta}. \sum_{j = 1}^{k}  x_j.p(z_t | m_{t-1}, x_j). p(x_j | x_{t-1}, u_{t-1}) \\
+    \varSigma_t = \frac{1}{\eta}. \sum_{j = 1}^{k}  p(z_t | m_{t-1}, x_j). p(x_j | x_{t-1}, u_{t-1}).(x_j - \mu_t).(x_j - \mu_t)^T \\
+    \eta = \sum_{j = 1}^{k}  p(z_t | m_{t-1}, x_j). p(x_j | x_{t-1}, u_{t-1})
+\end{gather}
+This leads to the efficient recursive calculation of the importance weights.
+\begin{gather} \label{gMap-w}
+    w_{t}^{i} = w_{t-1}^{i}.\eta
+\end{gather}
+However in situations in which the scan matching fails, motion model estimate is used to estimate the most likely position and derive the second generation samples.
+\begin{gather} \label{gMap-MM}
+    \hat{x_t} = p(x|m_{t-1}^{(i)}, z_t, x_t^{(i)}) \\
+    w_{t}^{i} = w_{t-1}^{i}.p(z_t | m_{t-1}, x_j)
+\end{gather}
+Finally when the variance of the weights increases as per the Adaptive re-sampling criteria discussed earlier, then re-sampling can be carried out on the existing particle set.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Summary}
+Particle filters are non parametric filters, hence it can be used to model any distribution. It models the distribution by random set of particles. These particles are sampled from a proposal distribution and weighted against the target distribution. This process is recursive which forms the sequential importance sampling principle. This allows previous weight values to be used in current estimation of the weight. However choosing the right proposal model is challenging. gMapping proposes a improved proposal distribution with the use of high precision laser scanners. Finally to avoid particle degeneration adaptive re-sampling is performed on the existing particle set.
